@@ -23,7 +23,7 @@ import {
   getNaverAccessToken,
   getNaverUserProfile,
 } from '@/lib/auth/naver';
-import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/auth/naver/callback
@@ -76,67 +76,56 @@ export async function GET(request: NextRequest) {
     const naverProfile = await getNaverUserProfile(tokens.access_token);
 
     // 5. Supabase Auth에 사용자 생성/업데이트
-    const supabase = createServerClient(cookieStore);
+    const adminClient = createAdminClient();
 
-    // 이메일로 기존 사용자 찾기
-    const { data: existingUser } = await supabase.auth.getUser();
+    // ⚠️ 네이버 ID로 기존 사용자 확인 (users 테이블)
+    const { data: existingUser } = await adminClient
+      .from('users')
+      .select('id')
+      .eq('naver_id', naverProfile.id)
+      .single();
 
     let userId: string;
 
-    if (existingUser && existingUser.user) {
-      // 이미 로그인된 사용자 (토큰 업데이트)
-      userId = existingUser.user.id;
+    if (existingUser && existingUser.id) {
+      // 기존 사용자: users 테이블의 ID 사용
+      userId = existingUser.id;
+      console.log('기존 사용자 로그인:', userId);
     } else {
-      // 신규 사용자 또는 로그아웃 상태
-      // Supabase Auth에 사용자 생성 (이메일 기반)
-      const { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({
-          email: naverProfile.email,
-          password: naverProfile.id, // 네이버 ID를 비밀번호로 사용 (임시)
-        });
+      // 신규 사용자: 새로운 Supabase Auth 사용자 생성
+      console.log('신규 사용자 회원가입:', naverProfile.email);
 
-      if (authError) {
-        // 사용자가 없으면 회원가입
-        const { data: signUpData, error: signUpError } =
-          await supabase.auth.signUp({
+      // 고유한 비밀번호 생성 (실제로는 사용 안 함, 네이버 로그인만 사용)
+      const randomPassword = Math.random().toString(36).slice(2) +
+                             Math.random().toString(36).slice(2) +
+                             Math.random().toString(36).slice(2);
+
+      try {
+        // admin.createUser: 이메일 확인 자동 완료 + RLS 우회
+        const { data: authData, error: authError } =
+          await adminClient.auth.admin.createUser({
             email: naverProfile.email,
-            password: naverProfile.id,
-            options: {
-              data: {
-                name: naverProfile.name,
-                naver_id: naverProfile.id,
-              },
-              emailRedirectTo: undefined, // 이메일 확인 비활성화
+            password: randomPassword,
+            email_confirm: true, // ✅ 이메일 자동 확인 (중요!)
+            user_metadata: {
+              name: naverProfile.name,
+              naver_id: naverProfile.id,
             },
           });
 
-        if (signUpError || !signUpData.user) {
-          throw new Error(`회원가입 실패: ${signUpError?.message}`);
+        if (authError || !authData.user) {
+          throw new Error(
+            `Supabase Auth 사용자 생성 실패: ${authError?.message || '알 수 없는 오류'}`
+          );
         }
 
-        userId = signUpData.user.id;
-
-        // 회원가입 후 명시적으로 로그인하여 세션 생성
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: naverProfile.email,
-          password: naverProfile.id,
-        });
-
-        if (signInError) {
-          console.error('회원가입 후 로그인 에러:', signInError);
-          // 에러가 있어도 계속 진행 (세션이 이미 있을 수 있음)
-        }
-      } else {
-        if (!authData.user) {
-          throw new Error('로그인 실패: 사용자 정보를 가져올 수 없습니다.');
-        }
         userId = authData.user.id;
+        console.log('신규 사용자 생성 완료:', userId);
+      } catch (createUserError) {
+        console.error('사용자 생성 중 에러:', createUserError);
+        throw createUserError;
       }
     }
-
-    // 6. users 테이블에 사용자 정보 저장 또는 업데이트
-    // RLS를 우회하기 위해 관리자 클라이언트 사용
-    const adminClient = createAdminClient();
     const { error: upsertError } = await adminClient
       .from('users')
       .upsert(
