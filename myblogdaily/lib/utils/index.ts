@@ -34,7 +34,6 @@ export type {
 
 // 로깅
 export {
-  Logger,
   LogLevel,
   logger,
   createLogger,
@@ -43,6 +42,7 @@ export {
   aiLogger,
   dbLogger,
   queueLogger,
+  curationLogger,
   devLog,
   prodLog,
   conditionalLog

@@ -63,7 +63,7 @@ export class ResendClient {
         to: Array.isArray(to) ? to : [to],
         subject,
         html,
-        reply_to: replyTo,
+        replyTo: replyTo,
         cc: cc ? (Array.isArray(cc) ? cc : [cc]) : undefined,
         bcc: bcc ? (Array.isArray(bcc) ? bcc : [bcc]) : undefined
       });

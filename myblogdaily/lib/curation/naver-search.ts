@@ -134,19 +134,6 @@ export class NaverSearchAPI {
     return this.search('news', options);
   }
 
-  /**
-   * HTML 태그 제거
-   */
-  static stripHtmlTags(text: string): string {
-    return text
-      .replace(/<b>/g, '')
-      .replace(/<\/b>/g, '')
-      .replace(/&quot;/g, '"')
-      .replace(/&apos;/g, "'")
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>');
-  }
 
   /**
    * 여러 키워드로 검색 (병렬)
@@ -183,3 +170,17 @@ export class NaverSearchAPI {
  * 전역 Naver Search API 인스턴스
  */
 export const naverSearchAPI = new NaverSearchAPI();
+
+/**
+ * HTML 태그 제거 유틸리티 함수
+ */
+export function stripHtmlTags(text: string): string {
+  return text
+    .replace(/<b>/g, '')
+    .replace(/<\/b>/g, '')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}

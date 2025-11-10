@@ -11,7 +11,7 @@
 import { curationLogger as logger } from '@/lib/utils/logger';
 import { Errors } from '@/lib/utils/error-handler';
 import type { CreativeDNA, ContentType } from '@/lib/ai/types';
-import { naverSearchAPI, type SearchResultItem, type SortType } from './naver-search';
+import { naverSearchAPI, stripHtmlTags, type SearchResultItem, type SortType } from './naver-search';
 
 /**
  * 큐레이션 아이템
@@ -185,8 +185,8 @@ export class Curator {
   ): CuratedItem[] {
     return items.map(item => {
       // HTML 태그 제거
-      const title = naverSearchAPI.constructor.stripHtmlTags(item.title);
-      const summary = naverSearchAPI.constructor.stripHtmlTags(item.description);
+      const title = stripHtmlTags(item.title);
+      const summary = stripHtmlTags(item.description);
 
       // 출처 결정
       const source = type === 'blog'

@@ -91,10 +91,7 @@ export const POST = asyncHandler(async (req: NextRequest) => {
 
   if (dnaError || !dnaRecord) {
     logger.error('writing_dna를 찾을 수 없음', dnaError);
-    throw Errors.NOT_FOUND(
-      'writing_dna',
-      '먼저 /api/analyze-dna로 문체 분석을 진행해주세요.'
-    );
+    throw Errors.NOT_FOUND('writing_dna (먼저 /api/analyze-dna로 문체 분석을 진행해주세요.)');
   }
 
   const creativeDNA = dnaRecord.creative_dna as CreativeDNA;

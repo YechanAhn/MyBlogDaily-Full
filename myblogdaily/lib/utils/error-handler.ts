@@ -7,7 +7,7 @@
  * - 사용자 친화적 에러 메시지 변환
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * 표준 에러 응답 형식
@@ -161,9 +161,9 @@ export function logError(error: unknown, context?: string): void {
  * 비동기 함수를 안전하게 래핑
  */
 export function asyncHandler<T>(
-  fn: (req: Request, context?: unknown) => Promise<NextResponse<T>>
+  fn: (req: NextRequest, context?: unknown) => Promise<NextResponse<T>>
 ) {
-  return async (req: Request, context?: unknown): Promise<NextResponse<T | ErrorResponse>> => {
+  return async (req: NextRequest, context?: unknown): Promise<NextResponse<T | ErrorResponse>> => {
     try {
       return await fn(req, context);
     } catch (error) {

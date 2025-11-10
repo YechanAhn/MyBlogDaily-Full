@@ -44,7 +44,8 @@ export async function testRedisConnection(): Promise<boolean> {
   const connection = getRedisConnection();
 
   try {
-    const client = new IORedis(connection);
+    // ConnectionOptions를 IORedis.RedisOptions로 변환
+    const client = new IORedis(connection as any);
     await client.ping();
     await client.quit();
 

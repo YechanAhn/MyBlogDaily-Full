@@ -76,10 +76,7 @@ export const POST = asyncHandler(async (req: NextRequest) => {
     .single();
 
   if (dnaError || !dnaRecord) {
-    throw Errors.NOT_FOUND(
-      'writing_dna',
-      '먼저 /api/analyze-dna로 문체 분석을 진행해주세요.'
-    );
+    throw Errors.NOT_FOUND('writing_dna (먼저 /api/analyze-dna로 문체 분석을 진행해주세요.)');
   }
 
   // 6. 액션 처리

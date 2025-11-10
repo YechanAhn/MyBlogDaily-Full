@@ -271,5 +271,3 @@ export function conditionalLog(
     logger.info(message, data);
   }
 }
-
-export { LogLevel, Logger };
