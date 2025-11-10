@@ -141,3 +141,20 @@ export function createAdminClient() {
 
 // === Next.js의 cookies 함수 타입 가져오기 ===
 import { cookies } from 'next/headers';
+
+/**
+ * API 라우트용 간단한 Supabase 클라이언트 생성
+ *
+ * createServerClient의 wrapper로, cookies()를 자동으로 호출합니다.
+ *
+ * 사용 예시:
+ * ```ts
+ * import { createClient } from '@/lib/supabase/server';
+ *
+ * const supabase = createClient();
+ * const { data } = await supabase.from('users').select('*');
+ * ```
+ */
+export function createClient() {
+  return createServerClient(cookies());
+}
