@@ -237,6 +237,11 @@ export const dbLogger = createLogger('DB');
 export const queueLogger = createLogger('Queue');
 
 /**
+ * 큐레이션 로거
+ */
+export const curationLogger = createLogger('Curation');
+
+/**
  * 개발 환경에서만 실행되는 로그
  */
 export function devLog(message: string, data?: unknown): void {
