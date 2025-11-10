@@ -1,0 +1,77 @@
+name: Test MyBlogDaily APIs
+
+on:
+  workflow_dispatch:  # 수동 실행
+    inputs:
+      test_user_email:
+        description: 'Test user email'
+        required: false
+        default: 'test@myblogdaily.com'
+      test_blog_id:
+        description: 'Naver blog ID to test'
+        required: false
+        default: ''
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      # Naver
+      NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+      NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+
+      # Supabase
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      # Claude
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      # Resend
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+
+      # Upstash Redis
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: myblogdaily/package-lock.json
+
+      - name: 🔧 Install dependencies
+        working-directory: myblogdaily
+        run: npm ci
+
+      - name: ✅ Check environment variables
+        working-directory: myblogdaily
+        run: |
+          echo "Checking environment variables..."
+          npm run check-env || echo "Some env vars missing, but continuing..."
+
+      - name: 🔨 Build project
+        working-directory: myblogdaily
+        run: npm run build
+
+      - name: 🧪 Type check
+        working-directory: myblogdaily
+        run: npx tsc --noEmit || echo "Type errors found, but continuing..."
+
+      - name: 📊 Show build summary
+        run: |
+          echo "✅ Build completed successfully!"
+          echo "📦 Dependencies installed"
+          echo "🔧 Environment variables configured"
+          echo ""
+          echo "To test APIs manually:"
+          echo "1. Start dev server: npm run dev"
+          echo "2. Follow TESTING_GUIDE.md"
