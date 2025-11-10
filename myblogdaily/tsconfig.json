@@ -1,0 +1,52 @@
+{
+  // TypeScript 컴파일러 설정
+  // 이 파일은 TypeScript가 JavaScript로 변환될 때의 규칙을 정의합니다
+  "compilerOptions": {
+    // === 기본 설정 ===
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ], // 사용할 JavaScript 라이브러리
+    "allowJs": true, // JavaScript 파일도 함께 사용 가능
+    "skipLibCheck": true, // 라이브러리 타입 체크 건너뛰기 (빌드 속도 향상)
+    "strict": true, // 엄격한 타입 체크 (권장!)
+    "noEmit": true, // JavaScript 파일 생성하지 않음 (Next.js가 알아서 처리)
+    "esModuleInterop": true, // CommonJS와 ES6 모듈 호환성
+    "module": "esnext", // 최신 모듈 시스템 사용
+    "moduleResolution": "bundler", // 모듈 해석 방식
+    "resolveJsonModule": true, // JSON 파일을 import 가능
+    "isolatedModules": true, // 각 파일을 독립적으로 처리
+    "jsx": "preserve", // JSX를 그대로 유지 (Next.js가 처리)
+    // === Next.js 전용 설정 ===
+    "incremental": true, // 증분 컴파일 (빌드 속도 향상)
+    "target": "ES2017", // 변환될 JavaScript 버전
+    // === Path Alias 설정 (@ 사용) ===
+    // 예: import Button from '@/components/Button'
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./*"
+      ] // @/로 시작하면 프로젝트 루트를 의미
+    },
+    // === 추가 설정 ===
+    "plugins": [
+      {
+        "name": "next" // Next.js TypeScript 플러그인
+      }
+    ],
+    "forceConsistentCasingInFileNames": true // 파일명 대소문자 일관성 강제
+  },
+  // === 컴파일에 포함할 파일 ===
+  "include": [
+    "next-env.d.ts", // Next.js 타입 정의
+    "**/*.ts", // 모든 TypeScript 파일
+    "**/*.tsx" // 모든 TypeScript React 파일
+    ,
+    ".next/types/**/*.ts"
+  ],
+  // === 컴파일에서 제외할 파일 ===
+  "exclude": [
+    "node_modules" // 외부 라이브러리 제외
+  ]
+}

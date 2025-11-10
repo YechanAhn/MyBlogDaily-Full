@@ -1,0 +1,193 @@
+/**
+ * 전역 스타일 파일
+ *
+ * 이 파일은 앱 전체에 적용되는 CSS 스타일을 정의합니다.
+ * Tailwind CSS의 기본 스타일과 커스텀 스타일을 포함합니다.
+ */
+
+/* === Tailwind CSS 기본 레이어 === */
+@tailwind base;       /* 기본 스타일 리셋 */
+@tailwind components; /* Tailwind 컴포넌트 클래스 */
+@tailwind utilities;  /* Tailwind 유틸리티 클래스 */
+
+/* === 커스텀 전역 스타일 === */
+
+/* 모든 요소에 box-sizing 적용 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* HTML, Body 기본 스타일 */
+html,
+body {
+  /* 전체 화면 높이 */
+  height: 100%;
+  /* 기본 폰트 크기 */
+  font-size: 16px;
+  /* 부드러운 스크롤 */
+  scroll-behavior: smooth;
+}
+
+body {
+  /* 기본 배경색 */
+  background-color: #f8f9fa;
+  /* 기본 글자색 */
+  color: #212529;
+  /* 폰트 렌더링 최적화 (맥, 아이폰에서 더 선명하게) */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* === 스크롤바 커스터마이징 (Webkit 브라우저) === */
+::-webkit-scrollbar {
+  width: 8px; /* 스크롤바 너비 */
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1; /* 스크롤바 트랙 배경 */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888; /* 스크롤바 색상 */
+  border-radius: 4px; /* 둥근 모서리 */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555; /* 마우스 올렸을 때 색상 */
+}
+
+/* === 링크 기본 스타일 === */
+a {
+  color: inherit; /* 부모 요소의 색상 상속 */
+  text-decoration: none; /* 밑줄 제거 */
+}
+
+a:hover {
+  text-decoration: underline; /* 마우스 올리면 밑줄 */
+}
+
+/* === 버튼 기본 스타일 리셋 === */
+button {
+  font-family: inherit; /* 폰트 상속 */
+  cursor: pointer; /* 마우스 커서 변경 */
+}
+
+/* === 입력 필드 기본 스타일 === */
+input,
+textarea,
+select {
+  font-family: inherit; /* 폰트 상속 */
+}
+
+/* === 이미지 기본 스타일 === */
+img,
+svg {
+  max-width: 100%; /* 부모 요소 너비를 넘지 않음 */
+  height: auto; /* 비율 유지 */
+}
+
+/* === 로딩 스피너 애니메이션 === */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* === 페이드 인 애니메이션 === */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* === 커스텀 유틸리티 클래스 === */
+
+/* 중앙 정렬 컨테이너 */
+.container-center {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* 카드 스타일 */
+.card {
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+}
+
+/* 버튼 기본 스타일 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background-color: #03c75a; /* 네이버 그린 */
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #02a04a;
+  text-decoration: none;
+}
+
+/* 입력 필드 기본 스타일 */
+.input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #03c75a;
+  box-shadow: 0 0 0 3px rgba(3, 199, 90, 0.1);
+}
+
+/* === 다크 모드 지원 (선택사항) === */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #1a1a1a;
+    color: #e5e5e5;
+  }
+
+  .card {
+    background-color: #2a2a2a;
+  }
+
+  .input {
+    background-color: #2a2a2a;
+    border-color: #404040;
+    color: #e5e5e5;
+  }
+}

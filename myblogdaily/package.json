@@ -1,0 +1,32 @@
+{
+  "name": "myblogdaily",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MyBlogDaily - 블로거를 위한 매일 아침 맞춤형 콘텐츠 큐레이션 및 초안 작성 서비스",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.45.4",
+    "next": "14.2.18",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.18",
+    "playwright": "^1.56.1",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3"
+  }
+}
