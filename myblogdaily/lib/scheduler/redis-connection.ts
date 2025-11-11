@@ -12,20 +12,46 @@ import type { ConnectionOptions } from 'bullmq';
 
 /**
  * Redis 연결 옵션 생성
+ *
+ * Upstash Redis는 RESP 프로토콜 사용 (REST가 아님)
+ * 연결 URL: rediss://default:<password>@<host>:<port>
  */
 export function getRedisConnection(): ConnectionOptions {
-  const url = getEnv('UPSTASH_REDIS_REST_URL');
-  const token = getEnv('UPSTASH_REDIS_REST_TOKEN');
+  // RESP 프로토콜용 UPSTASH_REDIS_URL 사용
+  // 형식: rediss://default:password@host:port
+  const redisUrl = process.env.UPSTASH_REDIS_URL;
 
-  logger.info('Redis 연결 설정 중...');
+  if (!redisUrl) {
+    // 폴백: 별도의 환경 변수 사용
+    const host = getEnv('UPSTASH_REDIS_HOST', 'localhost');
+    const port = parseInt(getEnv('UPSTASH_REDIS_PORT', '6379'));
+    const password = getEnv('UPSTASH_REDIS_PASSWORD');
 
-  // Upstash Redis REST URL에서 호스트와 포트 추출
-  const urlObj = new URL(url);
+    logger.info('Redis 연결 설정 중... (HOST/PORT/PASSWORD 방식)');
+
+    return {
+      host,
+      port,
+      password,
+      tls: {
+        rejectUnauthorized: true
+      },
+      maxRetriesPerRequest: 3,
+      enableReadyCheck: false,
+      enableOfflineQueue: true
+    };
+  }
+
+  logger.info('Redis 연결 설정 중... (UPSTASH_REDIS_URL)');
+
+  // rediss://default:password@host:port 형식 파싱
+  const urlObj = new URL(redisUrl);
 
   return {
     host: urlObj.hostname,
     port: parseInt(urlObj.port) || 6379,
-    password: token,
+    password: urlObj.password || '',
+    username: urlObj.username || 'default',
     tls: {
       // Upstash는 TLS 필수
       rejectUnauthorized: true

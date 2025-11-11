@@ -74,6 +74,11 @@ const REQUIRED_ENV_VARS = {
     format: /^re_.+/,
     description: 'Resend API Key (re_로 시작)'
   },
+  RESEND_FROM_EMAIL: {
+    required: true,
+    format: /.+@.+/,
+    description: '이메일 발송 주소 (예: noreply@yourdomain.com)'
+  },
 
   // Upstash Redis
   UPSTASH_REDIS_REST_URL: {
@@ -104,6 +109,24 @@ const OPTIONAL_ENV_VARS = {
     format: /.+/,
     description: 'YouTube Data API Key (큐레이션 향상)'
   },
+
+  // Redis (UPSTASH_REDIS_URL 또는 분리된 호스트/포트/비밀번호 사용)
+  UPSTASH_REDIS_URL: {
+    required: false,
+    format: /^rediss?:\/\/.+/,
+    description: 'Upstash Redis RESP URL (rediss://default:password@host:port)'
+  },
+  UPSTASH_REDIS_HOST: {
+    required: false,
+    format: /.+/,
+    description: 'Upstash Redis 호스트 (URL 대신 사용 가능)'
+  },
+  UPSTASH_REDIS_PORT: {
+    required: false,
+    format: /^\d+$/,
+    description: 'Upstash Redis 포트 (기본: 6379)'
+  },
+
   LOG_LEVEL: {
     required: false,
     format: /^(debug|info|warn|error)$/,

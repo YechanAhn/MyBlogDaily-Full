@@ -115,15 +115,35 @@ class NewsletterQueue {
 
   /**
    * 특정 사용자의 반복 작업 제거
+   *
+   * removeRepeatableByKey는 full repeatable key가 필요함
+   * format: "{jobName}:{pattern}:{jobId}"
    */
   async removeDailyJob(userId: string): Promise<void> {
     const jobId = `daily-${userId}`;
 
-    logger.info(`반복 작업 제거: ${jobId}`);
+    logger.info(`반복 작업 제거 시도: ${jobId}`);
 
-    await this.queue.removeRepeatableByKey(jobId);
+    try {
+      // 반복 작업 목록에서 사용자의 작업 찾기
+      const repeatableJobs = await this.queue.getRepeatableJobs();
 
-    logger.success('반복 작업 제거 완료');
+      const jobToRemove = repeatableJobs.find(job => job.id === jobId);
+
+      if (!jobToRemove) {
+        logger.warn(`반복 작업을 찾을 수 없음: ${jobId}`);
+        return;
+      }
+
+      // BullMQ는 full repeatable key 필요
+      // key format: "{jobName}:{pattern}:{jobId}"
+      await this.queue.removeRepeatableByKey(jobToRemove.key);
+
+      logger.success(`반복 작업 제거 완료: ${jobId}`);
+    } catch (error) {
+      logger.error(`반복 작업 제거 실패: ${jobId}`, error);
+      throw error;
+    }
   }
 
   /**

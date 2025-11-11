@@ -19,7 +19,6 @@ import { apiLogger as logger } from '@/lib/utils/logger';
  * 요청 바디
  */
 interface SendNewsletterRequest {
-  userId: string;
   action: 'send-now' | 'schedule-daily' | 'unschedule';  // 액션
   cronTime?: string;  // Cron 표현식 (schedule-daily 시)
 }
@@ -38,23 +37,28 @@ interface SendNewsletterResponse {
  * POST /api/send-newsletter
  */
 export const POST = asyncHandler(async (req: NextRequest) => {
-  // 1. 요청 파싱
+  // 1. Supabase 클라이언트
+  const supabase = createClient();
+
+  // 2. 현재 로그인된 사용자 확인 (세션 검증)
+  const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !authUser) {
+    throw Errors.UNAUTHORIZED('인증되지 않은 사용자입니다.');
+  }
+
+  const userId = authUser.id;
+
+  // 3. 요청 파싱
   const body: SendNewsletterRequest = await req.json();
-  const { userId, action, cronTime = '0 7 * * *' } = body;
+  const { action, cronTime = '0 7 * * *' } = body;
 
   logger.info(`뉴스레터 API 호출: ${action} (userId: ${userId})`);
 
-  // 2. 파라미터 검증
-  if (!userId) {
-    throw Errors.BAD_REQUEST('userId가 필요합니다.');
-  }
-
+  // 4. 파라미터 검증
   if (!['send-now', 'schedule-daily', 'unschedule'].includes(action)) {
     throw Errors.BAD_REQUEST('action은 send-now, schedule-daily, unschedule 중 하나여야 합니다.');
   }
-
-  // 3. Supabase 클라이언트
-  const supabase = createClient();
 
   // 4. 사용자 확인
   const { data: user, error: userError } = await supabase
