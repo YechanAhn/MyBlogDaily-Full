@@ -48,47 +48,43 @@ interface CollectPostsResponse {
 export const POST = asyncHandler(async (req: NextRequest) => {
   const startTime = Date.now();
 
-  // 1. 요청 바디 파싱
-  const body: CollectPostsRequest = await req.json();
-  const { userId, blogId, limit = 50 } = body;
+  // 1. 현재 로그인된 사용자 확인
+  const supabase = await createClient();
+  const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !authUser) {
+    throw Errors.UNAUTHORIZED('인증되지 않은 사용자입니다.');
+  }
+
+  // 2. 사용자 정보 조회 (blogId 가져오기)
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('naver_blog_id, naver_blog_url')
+    .eq('id', authUser.id)
+    .single();
+
+  if (userError || !userData || !userData.naver_blog_id) {
+    throw Errors.BAD_REQUEST('블로그 정보가 설정되지 않았습니다. 먼저 설정 페이지에서 블로그 URL을 저장해주세요.');
+  }
+
+  const userId = authUser.id;
+  const blogId = userData.naver_blog_id;
+  const limit = 50; // 기본값
 
   logger.info(`블로그 포스트 수집 시작: ${blogId} (사용자: ${userId}, 최대: ${limit}개)`);
 
-  // 2. 필수 파라미터 검증
-  if (!userId) {
-    throw Errors.BAD_REQUEST('userId가 필요합니다.');
-  }
-
-  if (!blogId) {
-    throw Errors.BAD_REQUEST('blogId가 필요합니다.');
-  }
-
-  if (limit < 1 || limit > 100) {
-    throw Errors.BAD_REQUEST('limit은 1-100 사이여야 합니다.');
-  }
-
-  // 3. Supabase 클라이언트 생성
-  const supabase = createClient();
-
-  // 4. 사용자 존재 확인
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('id, blog_id')
-    .eq('id', userId)
-    .single();
-
-  if (userError || !user) {
-    logger.error(`사용자를 찾을 수 없음: ${userId}`, userError);
-    throw Errors.NOT_FOUND('사용자');
-  }
-
-  // 5. RSS로 포스트 링크 목록 확보
+  // 3. RSS로 포스트 링크 목록 확보
   logger.info(`📡 RSS 피드 파싱: ${blogId}`);
   const rssResult = await fetchNaverBlogPosts(blogId, limit);
 
-  if (!rssResult.success || rssResult.posts.length === 0) {
+  if (!rssResult.success) {
     logger.error(`RSS 파싱 실패: ${blogId}`, { error: rssResult.error });
     throw Errors.EXTERNAL_API_ERROR('네이버 RSS', rssResult.error);
+  }
+
+  if (rssResult.posts.length === 0) {
+    logger.warn(`블로그 ${blogId}에 공개된 포스트가 없습니다.`);
+    throw Errors.BAD_REQUEST('블로그에 공개된 포스트가 없습니다. 포스트를 작성한 후 다시 시도해주세요.');
   }
 
   logger.success(`✅ RSS 파싱 완료: ${rssResult.posts.length}개 포스트`);
@@ -112,7 +108,7 @@ export const POST = asyncHandler(async (req: NextRequest) => {
   if (postsToCrawl.length === 0) {
     logger.warn('⚠️  모든 포스트가 이미 수집됨');
 
-    return ApiResponse.ok({
+    return ApiResponse.ok<CollectPostsResponse>({
       success: true,
       collected: 0,
       failed: 0,

@@ -202,6 +202,47 @@ class NewsletterQueue {
 }
 
 /**
- * 전역 뉴스레터 큐 인스턴스
+ * 전역 뉴스레터 큐 인스턴스 (Lazy initialization)
  */
-export const newsletterQueue = new NewsletterQueue();
+let _newsletterQueue: NewsletterQueue | null = null;
+
+export const newsletterQueue = {
+  getInstance(): NewsletterQueue {
+    if (!_newsletterQueue) {
+      _newsletterQueue = new NewsletterQueue();
+    }
+    return _newsletterQueue;
+  },
+
+  // API compatibility
+  async addJob(data: NewsletterJobData) {
+    return this.getInstance().addJob(data);
+  },
+
+  async addDailyJob(data: NewsletterJobData, cronTime?: string) {
+    return this.getInstance().addDailyJob(data, cronTime);
+  },
+
+  async removeDailyJob(userId: string) {
+    return this.getInstance().removeDailyJob(userId);
+  },
+
+  async getRepeatableJobs() {
+    return this.getInstance().getRepeatableJobs();
+  },
+
+  async getStats() {
+    return this.getInstance().getStats();
+  },
+
+  async cleanup() {
+    return this.getInstance().cleanup();
+  },
+
+  async close() {
+    if (_newsletterQueue) {
+      await _newsletterQueue.close();
+      _newsletterQueue = null;
+    }
+  }
+};
