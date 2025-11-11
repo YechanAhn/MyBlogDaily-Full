@@ -23,7 +23,6 @@ import type { BlogDraft } from '@/lib/ai/draft-writer';
  * 요청 바디
  */
 interface CurateRequest {
-  userId: string;
   curationOptions?: CurationOptions;  // 큐레이션 옵션
   draftOptions?: DraftOptions;        // 초안 옵션
   saveToDatabase?: boolean;           // DB 저장 여부 (기본: true)
@@ -49,24 +48,27 @@ interface CurateResponse {
 export const POST = asyncHandler(async (req: NextRequest) => {
   const startTime = Date.now();
 
-  // 1. 요청 파싱
+  // 1. Supabase 클라이언트
+  const supabase = createClient();
+
+  // 2. 현재 로그인된 사용자 확인 (세션 검증)
+  const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !authUser) {
+    throw Errors.UNAUTHORIZED('인증되지 않은 사용자입니다.');
+  }
+
+  const userId = authUser.id;
+
+  // 3. 요청 파싱
   const body: CurateRequest = await req.json();
   const {
-    userId,
     curationOptions = {},
     draftOptions = {},
     saveToDatabase = true
   } = body;
 
   logger.info(`큐레이션 시작: ${userId}`);
-
-  // 2. 파라미터 검증
-  if (!userId) {
-    throw Errors.BAD_REQUEST('userId가 필요합니다.');
-  }
-
-  // 3. Supabase 클라이언트
-  const supabase = createClient();
 
   // 4. 사용자 확인
   const { data: user, error: userError } = await supabase

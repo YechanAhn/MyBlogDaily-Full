@@ -22,7 +22,6 @@ import type { CreativeDNA } from '@/lib/ai/types';
  * 요청 바디
  */
 interface AnalyzeDNARequest {
-  userId: string;
   forceReanalyze?: boolean;  // 기존 분석 무시하고 재분석
 }
 
@@ -41,19 +40,23 @@ interface AnalyzeDNAResponse {
 export const POST = asyncHandler(async (req: NextRequest) => {
   const startTime = Date.now();
 
-  // 1. 요청 파싱
-  const body: AnalyzeDNARequest = await req.json();
-  const { userId, forceReanalyze = false } = body;
+  // 1. Supabase 클라이언트
+  const supabase = createClient();
 
-  logger.info(`문체 DNA 분석 시작: ${userId} (강제 재분석: ${forceReanalyze})`);
+  // 2. 현재 로그인된 사용자 확인 (세션 검증)
+  const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
 
-  // 2. 파라미터 검증
-  if (!userId) {
-    throw Errors.BAD_REQUEST('userId가 필요합니다.');
+  if (authError || !authUser) {
+    throw Errors.UNAUTHORIZED('인증되지 않은 사용자입니다.');
   }
 
-  // 3. Supabase 클라이언트
-  const supabase = createClient();
+  const userId = authUser.id;
+
+  // 3. 요청 파싱
+  const body: AnalyzeDNARequest = await req.json();
+  const { forceReanalyze = false } = body;
+
+  logger.info(`문체 DNA 분석 시작: ${userId} (강제 재분석: ${forceReanalyze})`);
 
   // 4. 사용자 확인
   const { data: user, error: userError } = await supabase
@@ -152,8 +155,6 @@ export const POST = asyncHandler(async (req: NextRequest) => {
   }
 
   // 10. blog_posts의 is_analyzed 플래그 업데이트
-  const postIds = posts.map(p => p.title);  // 실제로는 id 사용해야 함
-
   await supabase
     .from('blog_posts')
     .update({ is_analyzed: true })
