@@ -6,7 +6,6 @@
  * - Upstash Redis (서버리스) 사용
  */
 
-import { getEnv } from '@/lib/utils/env-validator';
 import { queueLogger as logger } from '@/lib/utils/logger';
 import type { ConnectionOptions } from 'bullmq';
 
@@ -23,9 +22,9 @@ export function getRedisConnection(): ConnectionOptions {
 
   if (!redisUrl) {
     // 폴백: 별도의 환경 변수 사용
-    const host = getEnv('UPSTASH_REDIS_HOST', 'localhost');
-    const port = parseInt(getEnv('UPSTASH_REDIS_PORT', '6379'));
-    const password = getEnv('UPSTASH_REDIS_PASSWORD');
+    const host = process.env.UPSTASH_REDIS_HOST || 'localhost';
+    const port = parseInt(process.env.UPSTASH_REDIS_PORT || '6379');
+    const password = process.env.UPSTASH_REDIS_PASSWORD;
 
     logger.info('Redis 연결 설정 중... (HOST/PORT/PASSWORD 방식)');
 
@@ -33,9 +32,9 @@ export function getRedisConnection(): ConnectionOptions {
       host,
       port,
       password,
-      tls: {
+      tls: password ? {
         rejectUnauthorized: true
-      },
+      } : undefined,
       maxRetriesPerRequest: 3,
       enableReadyCheck: false,
       enableOfflineQueue: true

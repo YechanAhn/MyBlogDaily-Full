@@ -42,7 +42,7 @@ export class ResendClient {
 
   constructor() {
     const apiKey = getEnv('RESEND_API_KEY');
-    this.defaultFrom = getEnv('RESEND_FROM_EMAIL');
+    this.defaultFrom = process.env.RESEND_FROM_EMAIL || 'noreply@example.com';
     this.client = new Resend(apiKey);
   }
 
