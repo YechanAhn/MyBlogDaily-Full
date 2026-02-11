@@ -111,8 +111,10 @@ export default function PlaceCard({ place, isSelected, onClick }: PlaceCardProps
         )}
 
         <div className="flex items-center gap-1.5 flex-wrap mb-2">
-          {displayRating && (
+          {displayRating ? (
             <span className="text-[12px] font-semibold text-amber-500">★ {displayRating.toFixed(1)}</span>
+          ) : (
+            <span className="text-[11px] text-amber-500">⭐ 리뷰 보기</span>
           )}
           {displayReviews && displayReviews > 0 && (
             <span className="text-[11px] text-gray-400">리뷰 {displayReviews >= 1000 ? `${(displayReviews / 1000).toFixed(1)}k` : displayReviews}</span>

@@ -39,6 +39,7 @@ export default function HomePage() {
   const [searchTarget, setSearchTarget] = useState<'origin' | 'dest'>('dest');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [showMealSearch, setShowMealSearch] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false); // 장소 검색 여부
   const [mealLocation, setMealLocation] = useState<LatLng | null>(null);
 
   const cardListRef = useRef<HTMLDivElement>(null);
@@ -109,13 +110,11 @@ export default function HomePage() {
       const result = parseRouteData(routes[0]);
       setRoute(result);
       setOriginalRoute(result);
+      setPlaces([]); // 장소 목록 초기화 (카테고리 선택 시 검색)
       setView('route');
-      setLoadingProgress(30);
-
-      // 기본 카테고리로 자동 검색
-      searchPlaces(result.polyline, category === 'custom' ? 'food' : category, result.totalDuration);
     } catch (err: any) {
       alert(err.message || '경로 검색 실패');
+    } finally {
       setIsLoading(false);
       setLoadingProgress(0);
     }
@@ -132,6 +131,7 @@ export default function HomePage() {
   // 장소 검색
   const searchPlaces = async (polyline: LatLng[], cat: SearchCategory, totalDuration?: number) => {
     setIsLoading(true);
+    setHasSearched(true);
     setSelectedPlace(null);
     setShowDetail(false);
     setLoadingProgress(30);
@@ -460,6 +460,8 @@ export default function HomePage() {
             place={selectedPlace}
             origin={originCoord}
             destination={destCoord}
+            originName={originName}
+            destName={destName}
             originalDuration={originalRoute?.totalDuration}
             originalDistance={originalRoute?.totalDistance}
             onClose={() => { setShowDetail(false); setView('route'); }}
@@ -487,12 +489,20 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* 결과 없음 */}
-            {isRouteView && !isLoading && places.length === 0 && (
+            {/* 결과 없음 - 검색한 적이 있을 때만 표시 */}
+            {isRouteView && !isLoading && hasSearched && places.length === 0 && (
               <div className="mx-4 mb-4 bg-white rounded-2xl shadow-lg p-6 text-center">
                 <p className="text-2xl mb-2">🔍</p>
                 <p className="text-sm text-gray-600 font-medium">경로 주변에 결과가 없습니다</p>
                 <p className="text-xs text-gray-400 mt-1">다른 카테고리를 선택해보세요</p>
+              </div>
+            )}
+
+            {/* 안내 메시지 - 아직 검색 전 */}
+            {isRouteView && !isLoading && !hasSearched && places.length === 0 && (
+              <div className="mx-4 mb-4 bg-white rounded-2xl shadow-lg p-5 text-center">
+                <p className="text-2xl mb-2">👆</p>
+                <p className="text-sm text-gray-600 font-medium">카테고리를 선택하여 경로 주변 장소를 찾아보세요</p>
               </div>
             )}
           </>

@@ -22,20 +22,21 @@ export default function CategoryChips({ value, onChange, visible = true, customL
   if (!visible) return null;
 
   return (
-    <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 py-2">
+    <div className="flex gap-1.5 overflow-x-auto scrollbar-hide px-4 py-2">
       {CATEGORIES.map((cat) => {
         const label = cat.key === 'custom' && customLabel ? customLabel : cat.label;
+        const isActive = value === cat.key;
         return (
           <button
             key={cat.key}
             onClick={() => onChange(cat.key)}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition-all whitespace-nowrap shadow-sm
-              ${value === cat.key
-                ? 'bg-white text-blue-600 shadow-md ring-1 ring-blue-100'
-                : 'bg-white/90 text-gray-700 hover:bg-white'
+            className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap
+              ${isActive
+                ? 'bg-blue-500 text-white shadow-md'
+                : 'bg-white/95 text-gray-600 shadow-sm hover:bg-white'
               }`}
           >
-            <span className="text-sm">{cat.emoji}</span>
+            <span className="text-xs">{cat.emoji}</span>
             <span>{label}</span>
           </button>
         );
