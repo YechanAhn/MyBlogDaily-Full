@@ -3,6 +3,7 @@ import { interpolate, haversineDistance } from './polyline';
 
 /**
  * Estimate the location along the route after N hours of driving
+ * 실제 도로 vertex를 사용하여 정확한 위치 보간
  */
 export function estimateLocationAfterHours(
   sections: RouteSection[],
@@ -12,18 +13,75 @@ export function estimateLocationAfterHours(
   let accumulated = 0;
 
   for (const section of sections) {
+    // 섹션 내에서 도로별로 세밀하게 보간
     if (accumulated + section.duration >= targetSeconds) {
-      const ratio = (targetSeconds - accumulated) / section.duration;
-      return interpolate(section.startCoord, section.endCoord, ratio);
+      const sectionRemaining = targetSeconds - accumulated;
+      let roadAccum = 0;
+
+      for (const road of section.roads || []) {
+        if (roadAccum + road.duration >= sectionRemaining) {
+          // 이 도로 내에서 정확한 위치 찾기
+          const roadRemaining = sectionRemaining - roadAccum;
+          const ratio = road.duration > 0 ? roadRemaining / road.duration : 0;
+          return interpolateAlongVertexes(road.vertexes || [], ratio);
+        }
+        roadAccum += road.duration;
+      }
+
+      // fallback: 섹션 끝
+      return section.endCoord;
     }
     accumulated += section.duration;
   }
 
-  // Beyond route duration: return end of last section
+  // 경로 시간 초과: 마지막 섹션 끝
   if (sections.length > 0) {
     return sections[sections.length - 1].endCoord;
   }
   return { lat: 0, lng: 0 };
+}
+
+/**
+ * vertexes 배열([lng,lat,lng,lat,...])에서 ratio(0~1) 위치의 좌표 보간
+ */
+function interpolateAlongVertexes(vertexes: number[], ratio: number): LatLng {
+  if (vertexes.length < 4) {
+    if (vertexes.length >= 2) return { lat: vertexes[1], lng: vertexes[0] };
+    return { lat: 0, lng: 0 };
+  }
+
+  // 각 세그먼트 거리 계산
+  const segments: { dist: number; startIdx: number }[] = [];
+  let totalDist = 0;
+  for (let i = 0; i < vertexes.length - 2; i += 2) {
+    const p1 = { lat: vertexes[i + 1], lng: vertexes[i] };
+    const p2 = { lat: vertexes[i + 3], lng: vertexes[i + 2] };
+    const d = haversineDistance(p1, p2);
+    segments.push({ dist: d, startIdx: i });
+    totalDist += d;
+  }
+
+  if (totalDist === 0) return { lat: vertexes[1], lng: vertexes[0] };
+
+  // ratio에 해당하는 위치 찾기
+  const targetDist = totalDist * Math.max(0, Math.min(1, ratio));
+  let cumDist = 0;
+
+  for (const seg of segments) {
+    if (cumDist + seg.dist >= targetDist) {
+      const segRatio = seg.dist > 0 ? (targetDist - cumDist) / seg.dist : 0;
+      const i = seg.startIdx;
+      return interpolate(
+        { lat: vertexes[i + 1], lng: vertexes[i] },
+        { lat: vertexes[i + 3], lng: vertexes[i + 2] },
+        segRatio
+      );
+    }
+    cumDist += seg.dist;
+  }
+
+  // 끝 지점
+  return { lat: vertexes[vertexes.length - 1], lng: vertexes[vertexes.length - 2] };
 }
 
 /**
@@ -78,23 +136,35 @@ function findClosestPointOnRoute(sections: RouteSection[], target: LatLng): LatL
 }
 
 /**
- * 가장 가까운 구간의 인덱스 찾기 (거리 기반)
+ * 경로 상에서 특정 지점 근처의 도로 방향 벡터 추출
  */
-function findClosestSectionIndex(sections: RouteSection[], point: LatLng): number {
+function findNearbyRouteDirection(sections: RouteSection[], point: LatLng): { dx: number; dy: number } | null {
   let minDist = Infinity;
-  let idx = 0;
-  for (let i = 0; i < sections.length; i++) {
-    const mid = {
-      lat: (sections[i].startCoord.lat + sections[i].endCoord.lat) / 2,
-      lng: (sections[i].startCoord.lng + sections[i].endCoord.lng) / 2,
-    };
-    const dist = Math.abs(mid.lat - point.lat) + Math.abs(mid.lng - point.lng);
-    if (dist < minDist) {
-      minDist = dist;
-      idx = i;
+  let bestDir: { dx: number; dy: number } | null = null;
+
+  for (const section of sections) {
+    for (const road of section.roads || []) {
+      const v = road.vertexes || [];
+      for (let i = 0; i < v.length - 2; i += 2) {
+        const p = { lat: v[i + 1], lng: v[i] };
+        const dist = haversineDistance(p, point);
+        if (dist < minDist) {
+          minDist = dist;
+          // 다음 포인트가 있으면 방향 계산
+          if (i + 3 < v.length) {
+            const dx = v[i + 2] - v[i];
+            const dy = v[i + 3] - v[i + 1];
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len > 0) {
+              bestDir = { dx: dx / len, dy: dy / len };
+            }
+          }
+        }
+      }
     }
   }
-  return idx;
+
+  return bestDir;
 }
 
 /**
@@ -113,8 +183,11 @@ export async function searchMealPlaces(
   } else if (params.mode === 'region' && params.regionName) {
     const coord = await searchRegionCoord(params.regionName);
     if (!coord) return { location: { lat: 0, lng: 0 }, places: [] };
-    // 경로에서 해당 지역과 가장 가까운 포인트를 찾아 검색 중심으로 사용
-    location = findClosestPointOnRoute(sections, coord);
+    // 경로에서 해당 지역과 가장 가까운 포인트 찾기
+    const routePoint = findClosestPointOnRoute(sections, coord);
+    const distToRoute = haversineDistance(routePoint, coord);
+    // 10km 이내면 경로 위 포인트에서 검색, 그 이상이면 지역 좌표에서 직접 검색
+    location = distToRoute <= 10 ? routePoint : coord;
   } else {
     return { location: { lat: 0, lng: 0 }, places: [] };
   }
@@ -122,22 +195,15 @@ export async function searchMealPlaces(
   // 3개 포인트에서 검색: 예상 위치 + ±10km 오프셋
   const searchPoints: LatLng[] = [location];
 
-  // ±10km 오프셋 포인트 추가 (위도 기준 약 0.09도 ≈ 10km)
-  const offsetDeg = 0.09;
-  if (params.mode === 'time' && sections.length > 0) {
-    // 경로 방향으로 앞뒤 10km 지점 추가
-    const idx = findClosestSectionIndex(sections, location);
-    if (idx >= 0 && idx < sections.length) {
-      const section = sections[idx];
-      const dx = section.endCoord.lng - section.startCoord.lng;
-      const dy = section.endCoord.lat - section.startCoord.lat;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 0) {
-        const nx = (dx / dist) * offsetDeg;
-        const ny = (dy / dist) * offsetDeg;
-        searchPoints.push({ lat: location.lat + ny, lng: location.lng + nx });
-        searchPoints.push({ lat: location.lat - ny, lng: location.lng - nx });
-      }
+  // 경로 방향으로 앞뒤 오프셋 포인트 추가
+  if (sections.length > 0) {
+    // 경로 상 location 부근의 방향 벡터를 도로 vertexes에서 추출
+    const nearby = findNearbyRouteDirection(sections, location);
+    if (nearby) {
+      // ±10km 오프셋 (위도 기준 약 0.09도)
+      const offsetDeg = 0.09;
+      searchPoints.push({ lat: location.lat + nearby.dy * offsetDeg, lng: location.lng + nearby.dx * offsetDeg });
+      searchPoints.push({ lat: location.lat - nearby.dy * offsetDeg, lng: location.lng - nearby.dx * offsetDeg });
     }
   }
 

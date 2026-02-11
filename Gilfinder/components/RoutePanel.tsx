@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RouteResult, Place } from '@/lib/types';
 
 interface RoutePanelProps {
@@ -8,6 +8,7 @@ interface RoutePanelProps {
   destName: string;
   route: RouteResult | null;
   waypoint?: Place | null;
+  defaultCompact?: boolean;
   onSwap?: () => void;
   onOriginClick?: () => void;
   onDestClick?: () => void;
@@ -19,12 +20,20 @@ export default function RoutePanel({
   destName,
   route,
   waypoint,
+  defaultCompact = false,
   onSwap,
   onOriginClick,
   onDestClick,
   onRemoveWaypoint,
 }: RoutePanelProps) {
-  const [isCompact, setIsCompact] = useState(false);
+  const [isCompact, setIsCompact] = useState(defaultCompact);
+
+  // 경로가 설정되면 자동으로 컴팩트 모드로 전환
+  useEffect(() => {
+    if (route && defaultCompact) {
+      setIsCompact(true);
+    }
+  }, [route, defaultCompact]);
 
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
