@@ -15,6 +15,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: '검색어를 입력해주세요.' }, { status: 400 });
   }
 
+  // 입력값 검증
+  if (query && query.length > 100) {
+    return NextResponse.json({ error: '검색어가 너무 깁니다.' }, { status: 400 });
+  }
+  if (x && (isNaN(parseFloat(x)) || parseFloat(x) < 124 || parseFloat(x) > 132)) {
+    return NextResponse.json({ error: '유효하지 않은 좌표입니다.' }, { status: 400 });
+  }
+  if (y && (isNaN(parseFloat(y)) || parseFloat(y) < 33 || parseFloat(y) > 39)) {
+    return NextResponse.json({ error: '유효하지 않은 좌표입니다.' }, { status: 400 });
+  }
+
   const apiKey = process.env.KAKAO_REST_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'API 키가 설정되지 않았습니다.' }, { status: 500 });

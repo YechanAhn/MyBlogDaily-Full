@@ -91,14 +91,24 @@ export default function PlaceCard({ place, isSelected, onClick }: PlaceCardProps
             {place.name}
           </h3>
           <span className={`ml-2 flex-shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full
-            ${place.detourMinutes <= 2 ? 'bg-green-100 text-green-700' :
-              place.detourMinutes <= 5 ? 'bg-blue-100 text-blue-700' :
+            ${place.detourMinutes <= 3 ? 'bg-green-100 text-green-700' :
+              place.detourMinutes <= 10 ? 'bg-blue-100 text-blue-700' :
               'bg-orange-100 text-orange-700'}`}>
             +{place.detourMinutes}분
           </span>
         </div>
 
-        <p className="text-[11px] text-gray-400 mb-2">{place.category}</p>
+        {/* 주유소 가격 강조 */}
+        {place.fuelPrice ? (
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-[15px] font-bold text-red-500">{place.fuelPrice.toLocaleString()}원/L</span>
+            {place.isSelfService && (
+              <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-medium">셀프</span>
+            )}
+          </div>
+        ) : (
+          <p className="text-[11px] text-gray-400 mb-2">{place.category}</p>
+        )}
 
         <div className="flex items-center gap-1.5 flex-wrap mb-2">
           {displayRating && (
@@ -107,11 +117,8 @@ export default function PlaceCard({ place, isSelected, onClick }: PlaceCardProps
           {displayReviews && displayReviews > 0 && (
             <span className="text-[11px] text-gray-400">리뷰 {displayReviews >= 1000 ? `${(displayReviews / 1000).toFixed(1)}k` : displayReviews}</span>
           )}
-          {place.fuelPrice && (
-            <span className="text-[13px] font-bold text-red-500">{place.fuelPrice.toLocaleString()}원</span>
-          )}
-          {place.isSelfService && (
-            <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-medium">셀프</span>
+          {place.detourDistance && place.detourDistance > 0 && (
+            <span className="text-[11px] text-gray-400">+{place.detourDistance >= 1000 ? `${(place.detourDistance / 1000).toFixed(1)}km` : `${place.detourDistance}m`}</span>
           )}
         </div>
 

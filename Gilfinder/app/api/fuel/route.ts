@@ -21,6 +21,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // 좌표 검증
+  const xNum = parseFloat(x);
+  const yNum = parseFloat(y);
+  if (isNaN(xNum) || isNaN(yNum) || xNum < 124 || xNum > 132 || yNum < 33 || yNum > 39) {
+    return NextResponse.json({ error: '유효하지 않은 좌표입니다.' }, { status: 400 });
+  }
+
   const kakaoKey = process.env.KAKAO_REST_KEY;
   if (!kakaoKey) {
     return NextResponse.json(
