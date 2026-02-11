@@ -1,0 +1,274 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e5]:
+      - img [ref=e21]
+      - generic [ref=e22]:
+        - generic [ref=e25]: 250m
+        - link "Kakao 맵으로 이동(새창열림)" [ref=e27] [cursor=pointer]:
+          - /url: http://map.kakao.com/
+          - img "Kakao 맵으로 이동(새창열림)" [ref=e28]
+      - generic [ref=e29]:
+        - button "확대" [ref=e30] [cursor=pointer]
+        - button "축소" [ref=e38] [cursor=pointer]
+      - generic [ref=e39]:
+        - generic:
+          - img [ref=e41]
+          - generic:
+            - generic [ref=e209] [cursor=pointer]: 🍽️
+            - generic [ref=e213] [cursor=pointer]: 🍽️
+            - generic [ref=e217] [cursor=pointer]: 🍽️
+            - generic [ref=e221] [cursor=pointer]: 🍽️
+            - generic [ref=e225] [cursor=pointer]: 🍽️
+            - generic [ref=e229] [cursor=pointer]: 🍽️
+            - generic [ref=e233] [cursor=pointer]: 🍽️
+            - generic [ref=e237] [cursor=pointer]: 🍽️
+            - generic [ref=e241] [cursor=pointer]: 🍽️
+            - generic [ref=e245] [cursor=pointer]: 🍽️
+            - generic [ref=e249] [cursor=pointer]: 🍽️
+            - generic [ref=e253] [cursor=pointer]: 🍽️
+            - generic [ref=e257] [cursor=pointer]: 🍽️
+            - generic [ref=e261] [cursor=pointer]: 🍽️
+            - generic [ref=e265] [cursor=pointer]: 🍽️
+            - generic [ref=e269] [cursor=pointer]: 🍽️
+            - generic [ref=e273] [cursor=pointer]: 🍽️
+            - generic [ref=e277] [cursor=pointer]: 🍽️
+            - generic [ref=e281] [cursor=pointer]: 🍽️
+            - generic [ref=e285] [cursor=pointer]: 🍽️
+            - generic [ref=e289] [cursor=pointer]: 🍽️
+            - generic [ref=e293] [cursor=pointer]: 🍽️
+            - generic [ref=e297] [cursor=pointer]: 🍽️
+            - generic [ref=e301] [cursor=pointer]: 🍽️
+            - generic [ref=e305] [cursor=pointer]: 🍽️
+            - generic [ref=e309] [cursor=pointer]: 🍽️
+            - generic [ref=e313] [cursor=pointer]: 🍽️
+            - generic [ref=e317] [cursor=pointer]: 🍽️
+            - generic [ref=e321] [cursor=pointer]: 🍽️
+            - generic [ref=e325] [cursor=pointer]: 🍽️
+      - generic [ref=e42]:
+        - generic [ref=e45]: 64km
+        - link "Kakao 맵으로 이동(새창열림)" [ref=e47] [cursor=pointer]:
+          - /url: http://map.kakao.com/
+          - img "Kakao 맵으로 이동(새창열림)" [ref=e48]
+      - generic [ref=e49]:
+        - button "확대" [ref=e50] [cursor=pointer]
+        - button "축소" [ref=e58] [cursor=pointer]
+    - generic [ref=e154]:
+      - generic [ref=e155]:
+        - generic [ref=e160]:
+          - button "현재 위치" [ref=e161] [cursor=pointer]
+          - button "부산역" [ref=e162] [cursor=pointer]
+        - button [ref=e163] [cursor=pointer]:
+          - img [ref=e164]
+      - generic [ref=e166]:
+        - generic [ref=e167]:
+          - img [ref=e168]
+          - generic [ref=e171]: 5시간 37분
+        - generic [ref=e172]:
+          - img [ref=e173]
+          - generic [ref=e175]: 397.8km
+    - generic [ref=e176]:
+      - generic [ref=e177]:
+        - button "📍 전체" [ref=e178] [cursor=pointer]:
+          - generic [ref=e179]: 📍
+          - generic [ref=e180]: 전체
+        - button "☕ 카페" [ref=e181] [cursor=pointer]:
+          - generic [ref=e182]: ☕
+          - generic [ref=e183]: 카페
+        - button "⛽ 주유소" [ref=e184] [cursor=pointer]:
+          - generic [ref=e185]: ⛽
+          - generic [ref=e186]: 주유소
+        - button "🍽️ 맛집" [ref=e187] [cursor=pointer]:
+          - generic [ref=e188]: 🍽️
+          - generic [ref=e189]: 맛집
+        - button "🏪 편의점" [ref=e190] [cursor=pointer]:
+          - generic [ref=e191]: 🏪
+          - generic [ref=e192]: 편의점
+        - button "🅿️ 휴게소" [ref=e193] [cursor=pointer]:
+          - generic [ref=e194]: 🅿️
+          - generic [ref=e195]: 휴게소
+        - button "🔍 검색" [ref=e196] [cursor=pointer]:
+          - generic [ref=e197]: 🔍
+          - generic [ref=e198]: 검색
+      - button "🍽️ 식사 장소 찾기 (시간/지역 기반)" [ref=e200] [cursor=pointer]
+    - generic [ref=e327]:
+      - generic [ref=e328] [cursor=pointer]:
+        - generic [ref=e329]:
+          - heading "고관함박" [level=3] [ref=e330]
+          - generic [ref=e331]: +2분
+        - paragraph [ref=e332]: 음식점
+        - paragraph [ref=e333]: 부산 동구 중앙대로349번길 14
+      - generic [ref=e334] [cursor=pointer]:
+        - generic [ref=e335]:
+          - heading "피자스쿨 휘경점" [level=3] [ref=e336]
+          - generic [ref=e337]: +2분
+        - paragraph [ref=e338]: 음식점
+        - paragraph [ref=e339]: 서울 동대문구 사가정로 222
+      - generic [ref=e340] [cursor=pointer]:
+        - generic [ref=e341]:
+          - heading "유성압구정찌개마을" [level=3] [ref=e342]
+          - generic [ref=e343]: +2분
+        - paragraph [ref=e344]: 음식점
+        - paragraph [ref=e345]: 서울 동대문구 사가정로 218
+      - generic [ref=e346] [cursor=pointer]:
+        - generic [ref=e347]:
+          - heading "떡수레" [level=3] [ref=e348]
+          - generic [ref=e349]: +2분
+        - paragraph [ref=e350]: 음식점
+        - paragraph [ref=e351]: 서울 동대문구 사가정로 222
+      - generic [ref=e352] [cursor=pointer]:
+        - generic [ref=e353]:
+          - heading "마라순코우마라탕 가야점" [level=3] [ref=e354]
+          - generic [ref=e355]: +2분
+        - paragraph [ref=e356]: 음식점
+        - paragraph [ref=e357]: 부산 부산진구 엄광로 176-5
+      - generic [ref=e358] [cursor=pointer]:
+        - generic [ref=e359]:
+          - heading "봉구스밥버거 동의대점" [level=3] [ref=e360]
+          - generic [ref=e361]: +2분
+        - paragraph [ref=e362]: 음식점
+        - paragraph [ref=e363]: 부산 부산진구 엄광로 176-5
+      - generic [ref=e364] [cursor=pointer]:
+        - generic [ref=e365]:
+          - heading "배떡 장안점" [level=3] [ref=e366]
+          - generic [ref=e367]: +2분
+        - paragraph [ref=e368]: 음식점
+        - paragraph [ref=e369]: 서울 동대문구 사가정로 218
+      - generic [ref=e370] [cursor=pointer]:
+        - generic [ref=e371]:
+          - heading "대박삼겹김치찜 장안동점" [level=3] [ref=e372]
+          - generic [ref=e373]: +2분
+        - paragraph [ref=e374]: 음식점
+        - paragraph [ref=e375]: 서울 동대문구 사가정로 222
+      - generic [ref=e376] [cursor=pointer]:
+        - generic [ref=e377]:
+          - heading "고기가맛있다" [level=3] [ref=e378]
+          - generic [ref=e379]: +2분
+        - paragraph [ref=e380]: 음식점
+        - paragraph [ref=e381]: 부산 부산진구 엄광로 176-5
+      - generic [ref=e382] [cursor=pointer]:
+        - generic [ref=e383]:
+          - heading "백가네냉면" [level=3] [ref=e384]
+          - generic [ref=e385]: +2분
+        - paragraph [ref=e386]: 음식점
+        - paragraph [ref=e387]: 서울 동대문구 사가정로 222
+      - generic [ref=e388] [cursor=pointer]:
+        - generic [ref=e389]:
+          - heading "마라순코우반점" [level=3] [ref=e390]
+          - generic [ref=e391]: +2분
+        - paragraph [ref=e392]: 음식점
+        - paragraph [ref=e393]: 부산 부산진구 엄광로 176-5
+      - generic [ref=e394] [cursor=pointer]:
+        - generic [ref=e395]:
+          - heading "충무김밥여행" [level=3] [ref=e396]
+          - generic [ref=e397]: +2분
+        - paragraph [ref=e398]: 음식점
+        - paragraph [ref=e399]: 부산 동구 수정로 3
+      - generic [ref=e400] [cursor=pointer]:
+        - generic [ref=e401]:
+          - heading "동진분식" [level=3] [ref=e402]
+          - generic [ref=e403]: +2분
+        - paragraph [ref=e404]: 음식점
+        - paragraph [ref=e405]: 서울 종로구 종로 260-1
+      - generic [ref=e406] [cursor=pointer]:
+        - generic [ref=e407]:
+          - heading "마포 껍데기" [level=3] [ref=e408]
+          - generic [ref=e409]: +2분
+        - paragraph [ref=e410]: 음식점
+        - paragraph [ref=e411]: 서울 동대문구 사가정로 221
+      - generic [ref=e412] [cursor=pointer]:
+        - generic [ref=e413]:
+          - heading "더테이블한정식" [level=3] [ref=e414]
+          - generic [ref=e415]: +2분
+        - paragraph [ref=e416]: 음식점
+        - paragraph [ref=e417]: 서울 중구 세종대로 124
+      - generic [ref=e418] [cursor=pointer]:
+        - generic [ref=e419]:
+          - heading "엄마손" [level=3] [ref=e420]
+          - generic [ref=e421]: +2분
+        - paragraph [ref=e422]: 음식점
+        - paragraph [ref=e423]: 서울 종로구 종로40길 4
+      - generic [ref=e424] [cursor=pointer]:
+        - generic [ref=e425]:
+          - heading "꽈배기마법사" [level=3] [ref=e426]
+          - generic [ref=e427]: +2분
+        - paragraph [ref=e428]: 음식점
+        - paragraph [ref=e429]: 서울 종로구 종로 260-2
+      - generic [ref=e430] [cursor=pointer]:
+        - generic [ref=e431]:
+          - heading "수빈마마" [level=3] [ref=e432]
+          - generic [ref=e433]: +2분
+        - paragraph [ref=e434]: 음식점
+        - paragraph [ref=e435]: 서울 동대문구 사가정로 221
+      - generic [ref=e436] [cursor=pointer]:
+        - generic [ref=e437]:
+          - heading "에스바" [level=3] [ref=e438]
+          - generic [ref=e439]: +2분
+        - paragraph [ref=e440]: 음식점
+        - paragraph [ref=e441]: 서울 동대문구 사가정로 221
+      - generic [ref=e442] [cursor=pointer]:
+        - generic [ref=e443]:
+          - heading "옛집한우허파" [level=3] [ref=e444]
+          - generic [ref=e445]: +2분
+        - paragraph [ref=e446]: 음식점
+        - paragraph [ref=e447]: 서울 동대문구 사가정로 222
+      - generic [ref=e448] [cursor=pointer]:
+        - generic [ref=e449]:
+          - heading "왕코등갈비" [level=3] [ref=e450]
+          - generic [ref=e451]: +2분
+        - paragraph [ref=e452]: 음식점
+        - paragraph [ref=e453]: 서울 동대문구 한천로 202
+      - generic [ref=e454] [cursor=pointer]:
+        - generic [ref=e455]:
+          - heading "청로야" [level=3] [ref=e456]
+          - generic [ref=e457]: +2분
+        - paragraph [ref=e458]: 음식점
+        - paragraph [ref=e459]: 부산 부산진구 엄광로 176-5
+      - generic [ref=e460] [cursor=pointer]:
+        - generic [ref=e461]:
+          - heading "김밥천국" [level=3] [ref=e462]
+          - generic [ref=e463]: +2분
+        - paragraph [ref=e464]: 음식점
+        - paragraph [ref=e465]: 부산 동구 중앙대로 206
+      - generic [ref=e466] [cursor=pointer]:
+        - generic [ref=e467]:
+          - heading "원호와초밥" [level=3] [ref=e468]
+          - generic [ref=e469]: +2분
+        - paragraph [ref=e470]: 음식점
+        - paragraph [ref=e471]: 서울 종로구 종로40길 4
+      - generic [ref=e472] [cursor=pointer]:
+        - generic [ref=e473]:
+          - heading "완판생국수" [level=3] [ref=e474]
+          - generic [ref=e475]: +2분
+        - paragraph [ref=e476]: 음식점
+        - paragraph [ref=e477]: 서울 종로구 종로 258
+      - generic [ref=e478] [cursor=pointer]:
+        - generic [ref=e479]:
+          - heading "김밥15시" [level=3] [ref=e480]
+          - generic [ref=e481]: +2분
+        - paragraph [ref=e482]: 음식점
+        - paragraph [ref=e483]: 부산 부산진구 엄광로 176-6
+      - generic [ref=e484] [cursor=pointer]:
+        - generic [ref=e485]:
+          - heading "쉼표포차" [level=3] [ref=e486]
+          - generic [ref=e487]: +2분
+        - paragraph [ref=e488]: 음식점
+        - paragraph [ref=e489]: 서울 동대문구 답십리로63길 132
+      - generic [ref=e490] [cursor=pointer]:
+        - generic [ref=e491]:
+          - heading "럭셔리" [level=3] [ref=e492]
+          - generic [ref=e493]: +2분
+        - paragraph [ref=e494]: 음식점
+        - paragraph [ref=e495]: 서울 종로구 종로39길 2
+      - generic [ref=e496] [cursor=pointer]:
+        - generic [ref=e497]:
+          - heading "서울마님죽 종로점" [level=3] [ref=e498]
+          - generic [ref=e499]: +2분
+        - paragraph [ref=e500]: 음식점
+        - paragraph [ref=e501]: 서울 종로구 종로41길 1
+      - generic [ref=e502] [cursor=pointer]:
+        - generic [ref=e503]:
+          - heading "남촌회관" [level=3] [ref=e504]
+          - generic [ref=e505]: +2분
+        - paragraph [ref=e506]: 음식점
+        - paragraph [ref=e507]: 서울 중구 세종대로20길 19
+  - alert [ref=e18]

@@ -1,0 +1,64 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e5]:
+      - img [ref=e21]
+      - generic [ref=e22]:
+        - generic [ref=e25]: 250m
+        - link "Kakao 맵으로 이동(새창열림)" [ref=e27] [cursor=pointer]:
+          - /url: http://map.kakao.com/
+          - img "Kakao 맵으로 이동(새창열림)" [ref=e28]
+      - generic [ref=e29]:
+        - button "확대" [ref=e30] [cursor=pointer]
+        - button "축소" [ref=e38] [cursor=pointer]
+      - img [ref=e41]
+      - generic [ref=e42]:
+        - generic [ref=e45]: 64km
+        - link "Kakao 맵으로 이동(새창열림)" [ref=e47] [cursor=pointer]:
+          - /url: http://map.kakao.com/
+          - img "Kakao 맵으로 이동(새창열림)" [ref=e48]
+      - generic [ref=e49]:
+        - button "확대" [ref=e50] [cursor=pointer]
+        - button "축소" [ref=e58] [cursor=pointer]
+    - generic [ref=e154]:
+      - generic [ref=e155]:
+        - generic [ref=e160]:
+          - button "현재 위치" [ref=e161] [cursor=pointer]
+          - button "부산역" [ref=e162] [cursor=pointer]
+        - button [ref=e163] [cursor=pointer]:
+          - img [ref=e164]
+      - generic [ref=e166]:
+        - generic [ref=e167]:
+          - img [ref=e168]
+          - generic [ref=e171]: 5시간 37분
+        - generic [ref=e172]:
+          - img [ref=e173]
+          - generic [ref=e175]: 397.8km
+    - generic [ref=e176]:
+      - generic [ref=e177]:
+        - button "📍 전체" [ref=e178] [cursor=pointer]:
+          - generic [ref=e179]: 📍
+          - generic [ref=e180]: 전체
+        - button "☕ 카페" [ref=e181] [cursor=pointer]:
+          - generic [ref=e182]: ☕
+          - generic [ref=e183]: 카페
+        - button "⛽ 주유소" [ref=e184] [cursor=pointer]:
+          - generic [ref=e185]: ⛽
+          - generic [ref=e186]: 주유소
+        - button "🍽️ 맛집" [ref=e187] [cursor=pointer]:
+          - generic [ref=e188]: 🍽️
+          - generic [ref=e189]: 맛집
+        - button "🏪 편의점" [ref=e190] [cursor=pointer]:
+          - generic [ref=e191]: 🏪
+          - generic [ref=e192]: 편의점
+        - button "🅿️ 휴게소" [ref=e193] [cursor=pointer]:
+          - generic [ref=e194]: 🅿️
+          - generic [ref=e195]: 휴게소
+        - button "🔍 검색" [ref=e196] [cursor=pointer]:
+          - generic [ref=e197]: 🔍
+          - generic [ref=e198]: 검색
+      - button "🍽️ 식사 장소 찾기 (시간/지역 기반)" [ref=e200] [cursor=pointer]
+    - generic [ref=e202]:
+      - paragraph [ref=e203]: 🔍
+      - paragraph [ref=e204]: 경로 주변에 결과가 없습니다
+      - paragraph [ref=e205]: 다른 카테고리를 선택해보세요
+  - alert [ref=e18]
