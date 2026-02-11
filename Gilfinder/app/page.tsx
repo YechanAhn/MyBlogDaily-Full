@@ -21,16 +21,20 @@ export default function HomePage() {
   const [originCoord, setOriginCoord] = useState<LatLng | null>(null);
   const [destName, setDestName] = useState('');
   const [destCoord, setDestCoord] = useState<LatLng | null>(null);
-  const [category, setCategory] = useState<SearchCategory>('all');
+  const [category, setCategory] = useState<SearchCategory>('food');
   const [customKeyword, setCustomKeyword] = useState('');
-  const [maxDetourMin] = useState(10);
+  const [maxDetourMin] = useState(30);
 
   // Route & search state
   const [route, setRoute] = useState<RouteResult | null>(null);
+  const [originalRoute, setOriginalRoute] = useState<RouteResult | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [waypoint, setWaypoint] = useState<Place | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingText, setLoadingText] = useState('');
   const [mapCenter, setMapCenter] = useState<LatLng | undefined>(undefined);
   const [searchTarget, setSearchTarget] = useState<'origin' | 'dest'>('dest');
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -39,7 +43,7 @@ export default function HomePage() {
 
   const cardListRef = useRef<HTMLDivElement>(null);
 
-  // Get current location on mount
+  // 현재 위치 가져오기
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -47,7 +51,6 @@ export default function HomePage() {
           setOriginCoord({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         },
         () => {
-          // Default to Seoul
           setOriginCoord({ lat: 37.5665, lng: 126.978 });
         },
         { enableHighAccuracy: true, timeout: 5000 }
@@ -55,10 +58,43 @@ export default function HomePage() {
     }
   }, []);
 
-  // Fetch route when both origin and destination are set
+  // 경로 파싱 헬퍼
+  const parseRouteData = useCallback((r: any): RouteResult => {
+    const sections: RouteSection[] = (r.sections || []).map((section: any) => ({
+      distance: section.distance,
+      duration: section.duration,
+      startCoord: {
+        lat: section.roads?.[0]?.vertexes?.[1] || 0,
+        lng: section.roads?.[0]?.vertexes?.[0] || 0,
+      },
+      endCoord: {
+        lat: section.roads?.[section.roads.length - 1]?.vertexes?.[section.roads[section.roads.length - 1]?.vertexes?.length - 1] || 0,
+        lng: section.roads?.[section.roads.length - 1]?.vertexes?.[section.roads[section.roads.length - 1]?.vertexes?.length - 2] || 0,
+      },
+      roads: section.roads || [],
+    }));
+
+    const polyline: LatLng[] = [];
+    for (const section of r.sections || []) {
+      for (const road of section.roads || []) {
+        polyline.push(...parseVertexes(road.vertexes || []));
+      }
+    }
+
+    return {
+      totalDistance: r.summary?.distance || 0,
+      totalDuration: r.summary?.duration || 0,
+      polyline,
+      sections,
+    };
+  }, []);
+
+  // 경로 조회
   const fetchRoute = useCallback(async () => {
     if (!originCoord || !destCoord) return;
     setIsLoading(true);
+    setLoadingProgress(10);
+    setLoadingText('경로 검색 중...');
 
     try {
       const res = await fetch(
@@ -70,48 +106,18 @@ export default function HomePage() {
       const routes = data.routes;
       if (!routes?.length) throw new Error('경로를 찾을 수 없습니다');
 
-      const r = routes[0];
-      const sections: RouteSection[] = (r.sections || []).map((section: any) => ({
-        distance: section.distance,
-        duration: section.duration,
-        startCoord: {
-          lat: section.roads?.[0]?.vertexes?.[1] || 0,
-          lng: section.roads?.[0]?.vertexes?.[0] || 0,
-        },
-        endCoord: {
-          lat: section.roads?.[section.roads.length - 1]?.vertexes?.[section.roads[section.roads.length - 1]?.vertexes?.length - 1] || 0,
-          lng: section.roads?.[section.roads.length - 1]?.vertexes?.[section.roads[section.roads.length - 1]?.vertexes?.length - 2] || 0,
-        },
-        roads: section.roads || [],
-      }));
-
-      const polyline: LatLng[] = [];
-      for (const section of r.sections || []) {
-        for (const road of section.roads || []) {
-          polyline.push(...parseVertexes(road.vertexes || []));
-        }
-      }
-
-      const result: RouteResult = {
-        totalDistance: r.summary?.distance || 0,
-        totalDuration: r.summary?.duration || 0,
-        polyline,
-        sections,
-      };
-
+      const result = parseRouteData(routes[0]);
       setRoute(result);
+      setOriginalRoute(result);
       setView('route');
+      setLoadingProgress(30);
 
-      // Auto-search with default category
-      if (category === 'all') {
-        searchPlaces(polyline, 'food', result.totalDuration);
-      } else {
-        searchPlaces(polyline, category, result.totalDuration);
-      }
+      // 기본 카테고리로 자동 검색
+      searchPlaces(result.polyline, category === 'custom' ? 'food' : category, result.totalDuration);
     } catch (err: any) {
       alert(err.message || '경로 검색 실패');
-    } finally {
       setIsLoading(false);
+      setLoadingProgress(0);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [originCoord, destCoord]);
@@ -123,26 +129,35 @@ export default function HomePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destCoord]);
 
-  // Search places along route
+  // 장소 검색
   const searchPlaces = async (polyline: LatLng[], cat: SearchCategory, totalDuration?: number) => {
     setIsLoading(true);
     setSelectedPlace(null);
     setShowDetail(false);
+    setLoadingProgress(40);
+    setLoadingText('장소 검색 중...');
 
     try {
       const keyword = cat === 'custom' ? customKeyword : undefined;
-      const effectiveCat = cat === 'all' ? 'food' : cat;
-      const found = await searchAlongRoute(polyline, effectiveCat, keyword, maxDetourMin, totalDuration);
-      const sorted = sortByRecommendation(found);
+      const found = await searchAlongRoute(polyline, cat, keyword, maxDetourMin, totalDuration);
+      setLoadingProgress(80);
+      setLoadingText('결과 정렬 중...');
+
+      // 주유소는 이미 가격순 정렬됨, 나머지는 추천순
+      const sorted = cat === 'fuel' ? found : sortByRecommendation(found);
       setPlaces(sorted);
+      setLoadingProgress(100);
     } catch {
       setPlaces([]);
     } finally {
-      setIsLoading(false);
+      setTimeout(() => {
+        setIsLoading(false);
+        setLoadingProgress(0);
+      }, 300);
     }
   };
 
-  // Handle category change
+  // 카테고리 변경
   const handleCategoryChange = (cat: SearchCategory) => {
     setCategory(cat);
     setShowMealSearch(false);
@@ -156,23 +171,26 @@ export default function HomePage() {
     }
   };
 
-  // Handle custom keyword search
+  // 검색어 검색
   const handleCustomSearch = () => {
     if (route?.polyline && customKeyword) {
       searchPlaces(route.polyline, 'custom', route.totalDuration);
     }
   };
 
-  // Handle meal search
+  // 식사 장소 검색
   const handleMealSearch = async (mode: MealSearchMode, value: string) => {
     if (!route?.sections) return;
     setIsLoading(true);
+    setLoadingProgress(20);
+    setLoadingText('식사 장소 검색 중...');
     try {
       const params = mode === 'time'
         ? { mode: 'time' as const, hoursFromNow: parseFloat(value) }
         : { mode: 'region' as const, regionName: value };
 
       const result = await searchMealPlaces(params, route.sections);
+      setLoadingProgress(80);
       if (result.places.length > 0) {
         setMealLocation(result.location);
         setMapCenter(result.location);
@@ -187,10 +205,11 @@ export default function HomePage() {
       alert('식사 장소 검색 실패');
     } finally {
       setIsLoading(false);
+      setLoadingProgress(0);
     }
   };
 
-  // Handle destination search result
+  // 목적지 검색 결과 선택
   const handleDestSelect = (result: AddressResult) => {
     if (searchTarget === 'dest') {
       setDestName(result.name);
@@ -202,12 +221,11 @@ export default function HomePage() {
     setView('home');
   };
 
-  // Handle place card selection
+  // 장소 카드 선택
   const handlePlaceSelect = (place: Place) => {
     setSelectedPlace(place);
     setMapCenter({ lat: place.lat, lng: place.lng });
 
-    // Scroll card into view
     if (cardListRef.current) {
       const idx = places.findIndex(p => p.id === place.id);
       if (idx >= 0) {
@@ -217,14 +235,53 @@ export default function HomePage() {
     }
   };
 
-  // Handle card tap for detail
+  // 상세 보기
   const handlePlaceDetailOpen = (place: Place) => {
     setSelectedPlace(place);
     setShowDetail(true);
     setView('detail');
   };
 
-  // Card scroll handler - sync map with card
+  // 경유지 추가
+  const handleAddWaypoint = async (place: Place) => {
+    setWaypoint(place);
+    setShowDetail(false);
+    setView('route');
+
+    // 경유 경로 계산
+    if (originCoord && destCoord) {
+      try {
+        const res = await fetch('/api/route', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            origin: originCoord,
+            destination: destCoord,
+            waypoints: [{ lat: place.lat, lng: place.lng, name: place.name }],
+          }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const routes = data.routes;
+        if (routes?.length) {
+          const waypointRoute = parseRouteData(routes[0]);
+          setRoute(waypointRoute);
+        }
+      } catch {
+        // 실패 시 원래 경로 유지
+      }
+    }
+  };
+
+  // 경유지 제거
+  const handleRemoveWaypoint = () => {
+    setWaypoint(null);
+    if (originalRoute) {
+      setRoute(originalRoute);
+    }
+  };
+
+  // 카드 스크롤 핸들러
   const handleCardScroll = () => {
     if (!cardListRef.current || !places.length) return;
     const container = cardListRef.current;
@@ -249,7 +306,7 @@ export default function HomePage() {
     }
   };
 
-  // Swap origin/destination
+  // 출발/도착 스왑
   const handleSwap = () => {
     const tmpName = originName;
     const tmpCoord = originCoord;
@@ -263,7 +320,7 @@ export default function HomePage() {
 
   return (
     <div className="h-[100dvh] flex flex-col relative overflow-hidden bg-gray-100">
-      {/* Full-screen Map */}
+      {/* 전체 화면 지도 */}
       <div className="absolute inset-0 z-0">
         <KakaoMap
           polyline={route?.polyline}
@@ -275,7 +332,7 @@ export default function HomePage() {
         />
       </div>
 
-      {/* Top Search Area */}
+      {/* 상단 검색 영역 */}
       <div className="relative z-10 pt-[env(safe-area-inset-top)] px-4 pt-3">
         {view === 'search' ? (
           <SearchBar
@@ -287,33 +344,30 @@ export default function HomePage() {
             userLat={originCoord?.lat}
             userLng={originCoord?.lng}
           />
-        ) : isRouteView ? (
-          <RoutePanel
-            originName={originName}
-            destName={destName}
-            route={route}
-            onSwap={handleSwap}
-            onOriginClick={() => { setSearchTarget('origin'); setView('search'); }}
-            onDestClick={() => { setSearchTarget('dest'); setView('search'); }}
-          />
         ) : (
           <RoutePanel
             originName={originName}
             destName={destName || '어디로 갈까요?'}
-            route={null}
+            route={isRouteView ? route : null}
+            waypoint={waypoint}
             onSwap={handleSwap}
             onOriginClick={() => { setSearchTarget('origin'); setView('search'); }}
             onDestClick={() => { setSearchTarget('dest'); setView('search'); }}
+            onRemoveWaypoint={handleRemoveWaypoint}
           />
         )}
       </div>
 
-      {/* Category Chips */}
+      {/* 카테고리 칩 */}
       {isRouteView && !showDetail && (
         <div className="relative z-10 mt-2">
-          <CategoryChips value={category} onChange={handleCategoryChange} />
+          <CategoryChips
+            value={category}
+            onChange={handleCategoryChange}
+            customLabel={customKeyword || undefined}
+          />
 
-          {/* Custom keyword input */}
+          {/* 검색어 입력 */}
           {showCustomInput && (
             <div className="px-4 mt-2 flex gap-2">
               <input
@@ -334,19 +388,19 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Meal search button - shown for food/all category */}
-          {(category === 'food' || category === 'all') && !showMealSearch && (
+          {/* 식사 장소 찾기 버튼 */}
+          {(category === 'food') && !showMealSearch && (
             <div className="px-4 mt-2">
               <button
                 onClick={() => setShowMealSearch(true)}
                 className="w-full py-2 bg-white rounded-xl shadow-sm text-sm font-medium text-orange-600 hover:bg-orange-50 transition-colors ring-1 ring-orange-100"
               >
-                🍽️ 식사 장소 찾기 (시간/지역 기반)
+                식사 장소 찾기 (시간/지역 기반)
               </button>
             </div>
           )}
 
-          {/* Meal search panel */}
+          {/* 식사 검색 패널 */}
           {showMealSearch && (
             <div className="mt-2">
               <MealSearch
@@ -359,38 +413,43 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Loading indicator */}
+      {/* 로딩 프로그레스바 */}
       {isLoading && (
-        <div className="relative z-10 flex justify-center mt-4">
-          <div className="bg-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-gray-600">검색 중...</span>
+        <div className="relative z-10 px-4 mt-3">
+          <div className="bg-white rounded-xl shadow-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-600 font-medium">{loadingText || '검색 중...'}</span>
+              <span className="text-xs text-blue-600 font-bold">{loadingProgress}%</span>
+            </div>
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${loadingProgress}%` }}
+              />
+            </div>
           </div>
         </div>
       )}
 
-      {/* Spacer to push bottom content down */}
+      {/* 여백 */}
       <div className="flex-1" />
 
-      {/* Bottom Area */}
+      {/* 하단 영역 */}
       <div className="relative z-10">
-        {/* Place Detail View */}
+        {/* 상세 보기 */}
         {showDetail && selectedPlace ? (
           <PlaceDetail
             place={selectedPlace}
             origin={originCoord}
             destination={destCoord}
-            originalDuration={route?.totalDuration}
-            originalDistance={route?.totalDistance}
+            originalDuration={originalRoute?.totalDuration}
+            originalDistance={originalRoute?.totalDistance}
             onClose={() => { setShowDetail(false); setView('route'); }}
-            onAddWaypoint={(place) => {
-              // 경유지 추가 후 네비 앱으로 이동할 수 있도록 알림
-              alert(`"${place.name}"이(가) 경유지로 설정되었습니다. 네비 앱에서 경유지가 포함된 경로로 안내됩니다.`);
-            }}
+            onAddWaypoint={handleAddWaypoint}
           />
         ) : (
           <>
-            {/* Place Card List */}
+            {/* 장소 카드 리스트 */}
             {isRouteView && places.length > 0 && (
               <div className="pb-[env(safe-area-inset-bottom)] pb-4">
                 <div
@@ -410,7 +469,7 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* No results */}
+            {/* 결과 없음 */}
             {isRouteView && !isLoading && places.length === 0 && (
               <div className="mx-4 mb-4 bg-white rounded-2xl shadow-lg p-6 text-center">
                 <p className="text-2xl mb-2">🔍</p>

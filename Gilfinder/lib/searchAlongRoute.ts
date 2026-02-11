@@ -81,9 +81,19 @@ export async function searchAlongRoute(
     withDetour = await enrichFuelPrices(withDetour);
   }
 
-  return withDetour
-    .filter(p => p.detourMinutes <= maxDetourMin)
-    .sort((a, b) => a.detourMinutes - b.detourMinutes);
+  const results = withDetour.filter(p => p.detourMinutes <= maxDetourMin);
+
+  // 주유소: 최저가 기준 정렬
+  if (category === 'fuel') {
+    return results.sort((a, b) => {
+      if (a.fuelPrice && b.fuelPrice) return a.fuelPrice - b.fuelPrice;
+      if (a.fuelPrice) return -1;
+      if (b.fuelPrice) return 1;
+      return a.detourMinutes - b.detourMinutes;
+    });
+  }
+
+  return results.sort((a, b) => a.detourMinutes - b.detourMinutes);
 }
 
 /**
@@ -152,34 +162,86 @@ function calculateTotalDistance(polyline: LatLng[]): number {
 }
 
 /**
- * Calculate actual driving detour time for each place
+ * 실제 경유 시 추가 시간/거리 계산
+ * 원래 경로 대비 경유지 추가 경로의 차이를 Kakao API로 계산
  */
 async function calculateDetourTimes(
   places: Place[],
   polyline: LatLng[],
-  _originalDuration?: number
+  originalDuration?: number
 ): Promise<Place[]> {
-  return places.map(place => {
-    const nearestDist = nearestRouteDistance(polyline, { lat: place.lat, lng: place.lng });
+  if (!originalDuration || polyline.length < 2) {
+    // API 호출 불가 시 거리 기반 추정
+    return places.map(place => {
+      const nearestDist = nearestRouteDistance(polyline, { lat: place.lat, lng: place.lng });
+      const distMeters = nearestDist * 1000;
+      // 도로 계수 1.4 적용, 평균 40km/h 가정, 왕복
+      const drivingMin = (distMeters * 1.4 / 1000) / 40 * 60 * 2;
+      // 고속도로 진출입 시간 추가 (약 3분)
+      const detourMinutes = Math.max(1, Math.round(drivingMin + 3));
+      return { ...place, detourMinutes, detourDistance: Math.round(distMeters * 1.4 * 2) };
+    });
+  }
 
-    let detourMinutes: number;
-    const distMeters = nearestDist * 1000;
+  const origin = polyline[0];
+  const destination = polyline[polyline.length - 1];
 
-    if (distMeters < 500) {
-      detourMinutes = 1;
-    } else if (distMeters < 2000) {
-      detourMinutes = Math.round((distMeters / 500) * 2) / 2;
-      detourMinutes = Math.max(1, Math.round(detourMinutes));
-    } else {
-      const drivingMin = distMeters / 600;
-      detourMinutes = Math.round(drivingMin + 3);
-    }
+  // 5개씩 배치로 실제 경유 경로 계산
+  const results: Place[] = [];
+  for (let i = 0; i < places.length; i += 5) {
+    const batch = places.slice(i, i + 5);
+    const promises = batch.map(async (place) => {
+      try {
+        const res = await fetch('/api/route', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            origin,
+            destination,
+            waypoints: [{ lat: place.lat, lng: place.lng, name: place.name }],
+          }),
+        });
+        if (!res.ok) throw new Error('API error');
+        const data = await res.json();
+        const routes = data.routes;
+        if (routes?.length) {
+          const newDuration = routes[0].summary?.duration || 0;
+          const newDistance = routes[0].summary?.distance || 0;
+          const deltaDuration = newDuration - originalDuration;
+          const deltaDistance = newDistance - (polyline.length > 0 ? calculateRouteDistance(polyline) : 0);
+          return {
+            ...place,
+            detourMinutes: Math.max(0, Math.round(deltaDuration / 60)),
+            detourDistance: Math.max(0, Math.round(deltaDistance)),
+          };
+        }
+      } catch {
+        // 실패 시 거리 기반 추정
+      }
+      const nearestDist = nearestRouteDistance(polyline, { lat: place.lat, lng: place.lng });
+      const distMeters = nearestDist * 1000;
+      const drivingMin = (distMeters * 1.4 / 1000) / 40 * 60 * 2;
+      return {
+        ...place,
+        detourMinutes: Math.max(1, Math.round(drivingMin + 3)),
+        detourDistance: Math.round(distMeters * 1.4 * 2),
+      };
+    });
+    results.push(...await Promise.all(promises));
+  }
 
-    // 왕복
-    detourMinutes = Math.round(detourMinutes * 2);
+  return results;
+}
 
-    return { ...place, detourMinutes };
-  });
+/**
+ * 폴리라인 총 거리 계산 (m)
+ */
+function calculateRouteDistance(polyline: LatLng[]): number {
+  let total = 0;
+  for (let i = 1; i < polyline.length; i++) {
+    total += haversineDistance(polyline[i - 1], polyline[i]) * 1000;
+  }
+  return total;
 }
 
 function nearestRouteDistance(polyline: LatLng[], point: LatLng): number {
@@ -192,53 +254,43 @@ function nearestRouteDistance(polyline: LatLng[], point: LatLng): number {
 }
 
 /**
- * 주유소 검색 결과에 캐시된 OPINET 가격 데이터 보강
- * API 호출 없이 서버 캐시에서 매칭
+ * 주유소 가격 데이터 보강 - 대표 좌표 하나로 API 한번만 호출
  */
 async function enrichFuelPrices(places: Place[]): Promise<Place[]> {
   if (places.length === 0) return places;
 
   try {
-    // 캐시에서 가격 매칭 요청 (한번의 API 호출로 처리)
-    const enriched = await Promise.all(
-      places.map(async (place) => {
-        try {
-          const params = new URLSearchParams({
-            x: place.lng.toString(),
-            y: place.lat.toString(),
-            radius: '1000',
-          });
-          const res = await fetch(`/api/fuel?${params.toString()}`);
-          if (!res.ok) return place;
+    // 전체 주유소의 중심 좌표 계산
+    const avgLat = places.reduce((s, p) => s + p.lat, 0) / places.length;
+    const avgLng = places.reduce((s, p) => s + p.lng, 0) / places.length;
 
-          const data = await res.json();
+    const params = new URLSearchParams({
+      x: avgLng.toString(),
+      y: avgLat.toString(),
+      radius: '5000',
+    });
+    const res = await fetch(`/api/fuel?${params.toString()}`);
+    if (!res.ok) return places;
+    const data = await res.json();
+    const cachedStations = data.fuelPrices || [];
 
-          // 캐시된 가격 데이터로 매칭
-          if (data.fuelPrices && data.fuelPrices.length > 0) {
-            const matched = matchFuelPrice(place, data.fuelPrices);
-            if (matched) {
-              return {
-                ...place,
-                fuelPrice: matched.price,
-                fuelType: matched.prodcd,
-                isSelfService: matched.isSelf,
-              };
-            }
-          }
-
-          // 셀프 여부만이라도 판단
-          if (place.name.includes('셀프')) {
-            return { ...place, isSelfService: true };
-          }
-
-          return place;
-        } catch {
-          return place;
+    return places.map(place => {
+      if (cachedStations.length > 0) {
+        const matched = matchFuelPrice(place, cachedStations);
+        if (matched) {
+          return {
+            ...place,
+            fuelPrice: matched.price,
+            fuelType: matched.prodcd,
+            isSelfService: matched.isSelf,
+          };
         }
-      })
-    );
-
-    return enriched;
+      }
+      if (place.name.includes('셀프')) {
+        return { ...place, isSelfService: true };
+      }
+      return place;
+    });
   } catch {
     return places;
   }

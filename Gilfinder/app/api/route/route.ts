@@ -12,6 +12,15 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // 좌표 형식 검증 (lng,lat)
+  const coordPattern = /^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/;
+  if (!coordPattern.test(origin) || !coordPattern.test(destination)) {
+    return NextResponse.json(
+      { error: '유효하지 않은 좌표 형식입니다.' },
+      { status: 400 }
+    );
+  }
+
   const apiKey = process.env.KAKAO_REST_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -67,6 +76,11 @@ export async function POST(request: NextRequest) {
         { error: '출발지와 도착지를 입력해주세요.' },
         { status: 400 }
       );
+    }
+
+    // 경유지 개수 제한
+    if (waypoints && waypoints.length > 5) {
+      return NextResponse.json({ error: '경유지는 최대 5개까지 가능합니다.' }, { status: 400 });
     }
 
     // 경유지가 없으면 기본 경로 API 사용

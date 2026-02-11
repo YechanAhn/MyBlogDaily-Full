@@ -9,7 +9,7 @@ interface DeeplinkTarget extends LatLng {
  */
 export function generateDeeplink(
   navi: NaviApp,
-  start: LatLng,
+  start: DeeplinkTarget,
   end: DeeplinkTarget,
   waypoint?: DeeplinkTarget
 ): string {
@@ -20,15 +20,20 @@ export function generateDeeplink(
       return url;
     }
     case 'naver': {
-      let url = `nmap://route/car?slat=${start.lat}&slng=${start.lng}&dlat=${end.lat}&dlng=${end.lng}&dname=${encodeURIComponent(end.name || '도착지')}&appname=com.gilfinder`;
+      // 네이버: dname에 장소명 표시 (도로명 대신)
+      let url = `nmap://route/car?slat=${start.lat}&slng=${start.lng}&sname=${encodeURIComponent(start.name || '출발지')}&dlat=${end.lat}&dlng=${end.lng}&dname=${encodeURIComponent(end.name || '도착지')}&appname=com.gilfinder`;
       if (waypoint) {
         url += `&v1lat=${waypoint.lat}&v1lng=${waypoint.lng}&v1name=${encodeURIComponent(waypoint.name || '경유지')}`;
       }
       return url;
     }
     case 'tmap': {
-      const target = waypoint || end;
-      return `tmap://route?rGoName=${encodeURIComponent(target.name || '목적지')}&rGoX=${target.lng}&rGoY=${target.lat}`;
+      // T맵은 경유지를 rVX/rVY로 전달, 최종 도착지는 rGoX/rGoY
+      let url = `tmap://route?rGoName=${encodeURIComponent(end.name || '도착지')}&rGoX=${end.lng}&rGoY=${end.lat}`;
+      if (waypoint) {
+        url += `&rV1Name=${encodeURIComponent(waypoint.name || '경유지')}&rV1X=${waypoint.lng}&rV1Y=${waypoint.lat}`;
+      }
+      return url;
     }
   }
 }
@@ -56,7 +61,7 @@ const APP_STORE_URLS: Record<NaviApp, { ios: string; android: string }> = {
  */
 export function openNaviApp(
   navi: NaviApp,
-  start: LatLng,
+  start: DeeplinkTarget,
   end: DeeplinkTarget,
   waypoint?: DeeplinkTarget
 ): void {

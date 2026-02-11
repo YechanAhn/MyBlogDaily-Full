@@ -1,5 +1,5 @@
 import { LatLng, RouteSection, Place, MealSearchParams } from './types';
-import { interpolate } from './polyline';
+import { interpolate, haversineDistance } from './polyline';
 
 /**
  * Estimate the location along the route after N hours of driving
@@ -44,6 +44,40 @@ export async function searchRegionCoord(regionName: string): Promise<LatLng | nu
 }
 
 /**
+ * 경로 위에서 특정 좌표에 가장 가까운 지점 찾기
+ * 지역 검색 시 경로에서 벗어나지 않는 결과를 위해 사용
+ */
+function findClosestPointOnRoute(sections: RouteSection[], target: LatLng): LatLng {
+  let minDist = Infinity;
+  let closest: LatLng = target;
+
+  for (const section of sections) {
+    // 섹션의 도로 포인트들을 순회
+    for (const road of section.roads || []) {
+      const vertexes = road.vertexes || [];
+      for (let i = 0; i < vertexes.length; i += 2) {
+        const point = { lat: vertexes[i + 1], lng: vertexes[i] };
+        const dist = haversineDistance(point, target);
+        if (dist < minDist) {
+          minDist = dist;
+          closest = point;
+        }
+      }
+    }
+    // 섹션 시작/끝 좌표도 확인
+    for (const pt of [section.startCoord, section.endCoord]) {
+      const dist = haversineDistance(pt, target);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = pt;
+      }
+    }
+  }
+
+  return closest;
+}
+
+/**
  * 가장 가까운 구간의 인덱스 찾기 (거리 기반)
  */
 function findClosestSectionIndex(sections: RouteSection[], point: LatLng): number {
@@ -79,7 +113,8 @@ export async function searchMealPlaces(
   } else if (params.mode === 'region' && params.regionName) {
     const coord = await searchRegionCoord(params.regionName);
     if (!coord) return { location: { lat: 0, lng: 0 }, places: [] };
-    location = coord;
+    // 경로에서 해당 지역과 가장 가까운 포인트를 찾아 검색 중심으로 사용
+    location = findClosestPointOnRoute(sections, coord);
   } else {
     return { location: { lat: 0, lng: 0 }, places: [] };
   }

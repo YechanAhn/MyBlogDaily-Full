@@ -169,24 +169,28 @@ export default function KakaoMap({
 
       // Custom marker overlay
       const markerContent = document.createElement('div');
+      const hasFuelPrice = place.fuelPrice && place.categoryCode === 'OL7';
       markerContent.innerHTML = `
-        <div style="
-          width: ${isSelected ? '44px' : '28px'};
-          height: ${isSelected ? '44px' : '28px'};
-          background: ${isSelected ? color : 'white'};
-          border: 3px solid ${color};
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.2s;
-          box-shadow: 0 2px 8px rgba(0,0,0,${isSelected ? '0.3' : '0.15'});
-          ${isSelected ? 'animation: markerPulse 2s ease-in-out infinite;' : ''}
-        ">
-          <span style="font-size: ${isSelected ? '20px' : '12px'}; ${isSelected ? 'filter: brightness(10);' : ''}">
-            ${getCategoryEmoji(place.categoryCode || '')}
-          </span>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="
+            width: ${isSelected ? '44px' : '28px'};
+            height: ${isSelected ? '44px' : '28px'};
+            background: ${isSelected ? color : 'white'};
+            border: 3px solid ${color};
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,${isSelected ? '0.3' : '0.15'});
+            ${isSelected ? 'animation: markerPulse 2s ease-in-out infinite;' : ''}
+          ">
+            <span style="font-size: ${isSelected ? '20px' : '12px'}; ${isSelected ? 'filter: brightness(10);' : ''}">
+              ${getCategoryEmoji(place.categoryCode || '')}
+            </span>
+          </div>
+          ${hasFuelPrice ? `<div style="background:#EF4444;color:white;font-size:10px;font-weight:700;padding:1px 5px;border-radius:6px;margin-top:2px;white-space:nowrap;">${place.fuelPrice!.toLocaleString()}원</div>` : ''}
         </div>
       `;
 
@@ -240,7 +244,7 @@ export default function KakaoMap({
         <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
           ${selectedPlace.rating ? `<span style="color: #F59E0B; font-weight: 600; font-size: 12px;">★ ${selectedPlace.rating.toFixed(1)}</span>` : ''}
           <span style="color: #3B82F6; font-weight: 600; font-size: 12px;">+${selectedPlace.detourMinutes}분</span>
-          ${selectedPlace.fuelPrice ? `<span style="color: #EF4444; font-weight: 700; font-size: 12px;">${selectedPlace.fuelPrice.toLocaleString()}원</span>` : ''}
+          ${selectedPlace.fuelPrice ? `<span style="color: #EF4444; font-weight: 700; font-size: 13px;">${selectedPlace.fuelPrice.toLocaleString()}원/L</span>` : ''}
         </div>
       </div>
     `;
@@ -248,7 +252,7 @@ export default function KakaoMap({
     selectedOverlayRef.current = new window.kakao.maps.CustomOverlay({
       position,
       content: infoContent,
-      yAnchor: 2.2,
+      yAnchor: 3.0,
       zIndex: 100,
     });
 

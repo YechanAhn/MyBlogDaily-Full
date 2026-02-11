@@ -4,9 +4,9 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const placeId = searchParams.get('id');
 
-  if (!placeId) {
+  if (!placeId || !/^\d+$/.test(placeId)) {
     return NextResponse.json(
-      { error: '장소 ID가 필요합니다.' },
+      { error: '유효하지 않은 장소 ID입니다.' },
       { status: 400 }
     );
   }
