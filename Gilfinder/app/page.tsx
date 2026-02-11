@@ -344,7 +344,7 @@ export default function HomePage() {
       {!isRouteView && view !== 'search' && (
         <div className="relative z-10 pt-[env(safe-area-inset-top)] px-4 pt-3 pb-1">
           <h1 className="text-lg font-extrabold text-gray-800 tracking-tight">
-            <span className="text-blue-600">길</span>위의<span className="text-blue-600">발견</span>
+            <span className="text-blue-600">가는</span>길에
           </h1>
         </div>
       )}

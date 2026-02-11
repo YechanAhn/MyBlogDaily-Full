@@ -125,7 +125,7 @@ interface FuelCache {
 // 서버 메모리 캐시
 let memoryCache: FuelCache | null = null;
 
-const CACHE_FILE = '/tmp/gilfinder-fuel-cache.json';
+const CACHE_FILE = '/tmp/ontheway-fuel-cache.json';
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24시간
 
 // 전국 주요 고속도로/도시 그리드 포인트 (~80개)

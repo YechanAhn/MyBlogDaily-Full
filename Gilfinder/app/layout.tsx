@@ -3,11 +3,11 @@ import Script from 'next/script';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '길위의발견 - GilFinder',
+  title: '가는길에 - OnTheWay',
   description: '가는 길이 즐거워지는 순간. 경로 위 맛집, 주유소, 카페를 찾아보세요.',
   manifest: '/manifest.json',
   openGraph: {
-    title: '길위의발견 - GilFinder',
+    title: '가는길에 - OnTheWay',
     description: '가는 길이 즐거워지는 순간. 경로 위 맛집, 주유소, 카페를 찾아보세요.',
     type: 'website',
     locale: 'ko_KR',
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: '길위의발견',
+    title: '가는길에',
   },
 };
 

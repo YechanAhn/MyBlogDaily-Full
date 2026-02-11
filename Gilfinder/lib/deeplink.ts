@@ -21,7 +21,7 @@ export function generateDeeplink(
     }
     case 'naver': {
       // 네이버: dname에 장소명 표시 (도로명 대신)
-      let url = `nmap://route/car?slat=${start.lat}&slng=${start.lng}&sname=${encodeURIComponent(start.name || '출발지')}&dlat=${end.lat}&dlng=${end.lng}&dname=${encodeURIComponent(end.name || '도착지')}&appname=com.gilfinder`;
+      let url = `nmap://route/car?slat=${start.lat}&slng=${start.lng}&sname=${encodeURIComponent(start.name || '출발지')}&dlat=${end.lat}&dlng=${end.lng}&dname=${encodeURIComponent(end.name || '도착지')}&appname=com.ontheway`;
       if (waypoint) {
         url += `&v1lat=${waypoint.lat}&v1lng=${waypoint.lng}&v1name=${encodeURIComponent(waypoint.name || '경유지')}`;
       }
