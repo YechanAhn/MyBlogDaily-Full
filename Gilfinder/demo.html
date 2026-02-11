@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GilFinder Demo - 길위의발견</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Pretendard', sans-serif;
+    background: #f0f2f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    gap: 32px;
+    padding: 40px;
+  }
+  .screen-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .screen-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #374151;
+    letter-spacing: -0.5px;
+  }
+  .phone {
+    width: 375px;
+    height: 812px;
+    background: #fff;
+    border-radius: 40px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 0 8px #1a1a1a;
+    position: relative;
+  }
+  .notch {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 28px;
+    background: #1a1a1a;
+    border-radius: 0 0 16px 16px;
+    z-index: 100;
+  }
+  .map-bg {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #e8f0e8 0%, #d4e6d4 25%, #e2ece2 50%, #d8e4d8 75%, #eaf2ea 100%);
+    position: relative;
+  }
+  .map-roads {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+  .road {
+    position: absolute;
+    background: #fff;
+    border: 1px solid #ccc;
+  }
+  .road.h1 { top: 200px; left: 0; right: 0; height: 6px; }
+  .road.h2 { top: 400px; left: 0; right: 0; height: 4px; }
+  .road.h3 { top: 600px; left: 0; right: 0; height: 4px; }
+  .road.v1 { top: 0; bottom: 0; left: 100px; width: 4px; }
+  .road.v2 { top: 0; bottom: 0; left: 250px; width: 6px; }
+  .road.v3 { top: 0; bottom: 0; right: 60px; width: 4px; }
+  .route-line {
+    position: absolute;
+    top: 80px;
+    left: 80px;
+    width: 4px;
+    height: 600px;
+    background: none;
+  }
+  .route-line svg { width: 240px; height: 600px; position: absolute; left: -120px; top: 0; }
+
+  .search-bar {
+    position: absolute;
+    top: 52px;
+    left: 16px;
+    right: 16px;
+    z-index: 50;
+  }
+  .search-bar-inner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    padding: 10px 14px;
+    border: 1px solid #f0f0f0;
+  }
+  .search-icon { width: 18px; height: 18px; color: #9CA3AF; }
+  .search-text { font-size: 15px; color: #9CA3AF; }
+
+  .route-panel {
+    position: absolute;
+    top: 52px;
+    left: 16px;
+    right: 16px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    padding: 16px;
+    z-index: 50;
+  }
+  .route-row { display: flex; gap: 12px; align-items: center; }
+  .route-dots { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .dot-blue { width: 10px; height: 10px; border-radius: 50%; background: #3B82F6; }
+  .dot-red { width: 10px; height: 10px; border-radius: 50%; background: #EF4444; }
+  .dot-line { width: 2px; flex: 1; min-height: 20px; background: #E5E7EB; }
+  .route-inputs { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .route-input { background: #F3F4F6; border-radius: 8px; padding: 8px 12px; font-size: 13px; color: #374151; }
+  .swap-btn {
+    width: 32px; height: 32px; border-radius: 50%; background: #f9fafb;
+    display: flex; align-items: center; justify-content: center; border: 1px solid #e5e7eb; font-size: 14px; color: #6B7280;
+  }
+  .route-summary { display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
+  .route-stat { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .route-stat.time { color: #3B82F6; font-weight: 700; }
+  .route-stat.dist { color: #6B7280; }
+
+  .category-chips {
+    position: absolute;
+    top: 180px;
+    left: 0; right: 0;
+    display: flex;
+    gap: 8px;
+    padding: 0 16px;
+    overflow-x: auto;
+    z-index: 50;
+  }
+  .chip {
+    display: flex; align-items: center; gap: 4px;
+    padding: 6px 12px; border-radius: 20px;
+    background: rgba(255,255,255,0.95);
+    font-size: 13px; font-weight: 500;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    color: #374151;
+  }
+  .chip.active {
+    background: white; color: #3B82F6; font-weight: 600;
+    box-shadow: 0 2px 8px rgba(59,130,246,0.2);
+    outline: 1px solid rgba(59,130,246,0.2);
+  }
+  .chip-emoji { font-size: 14px; }
+
+  .marker {
+    position: absolute;
+    width: 28px; height: 28px;
+    border-radius: 50%; background: white;
+    border: 3px solid;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    z-index: 30;
+  }
+  .marker.selected { width: 36px; height: 36px; font-size: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); z-index: 35; }
+  .marker.cafe { border-color: #8B5CF6; }
+  .marker.cafe.selected { background: #8B5CF6; }
+  .marker.food { border-color: #EF4444; }
+  .marker.food.selected { background: #EF4444; }
+  .marker.fuel { border-color: #22C55E; }
+  .marker.convenience { border-color: #3B82F6; }
+
+  .info-overlay {
+    position: absolute; background: white;
+    padding: 10px 14px; border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    font-size: 13px; min-width: 160px; z-index: 40;
+  }
+  .info-name { font-weight: 700; color: #111; margin-bottom: 2px; }
+  .info-cat { font-size: 11px; color: #999; }
+  .info-stats { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .info-rating { color: #F59E0B; font-weight: 600; font-size: 12px; }
+  .info-detour { color: #3B82F6; font-weight: 600; font-size: 12px; }
+
+  .card-list {
+    position: absolute; bottom: 16px; left: 0; right: 0;
+    display: flex; gap: 12px; padding: 0 16px;
+    overflow-x: auto; z-index: 50;
+  }
+  .place-card {
+    flex-shrink: 0; width: 260px; background: white;
+    border-radius: 16px; padding: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .place-card.selected { outline: 2px solid #3B82F6; box-shadow: 0 4px 16px rgba(59,130,246,0.2); }
+  .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; }
+  .card-name { font-weight: 700; font-size: 14px; color: #111; }
+  .card-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+  .badge-green { background: #DCFCE7; color: #15803D; }
+  .badge-blue { background: #DBEAFE; color: #1D4ED8; }
+  .card-category { font-size: 11px; color: #9CA3AF; margin-bottom: 8px; }
+  .card-stats { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .card-rating { font-size: 12px; font-weight: 600; color: #F59E0B; }
+  .card-reviews { font-size: 11px; color: #9CA3AF; }
+  .card-address { font-size: 11px; color: #6B7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .detail-sheet {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: white; border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.1);
+    z-index: 60; padding: 0 20px 24px;
+  }
+  .detail-handle { width: 40px; height: 4px; background: #E5E7EB; border-radius: 2px; margin: 12px auto 16px; }
+  .detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .detail-name { font-size: 18px; font-weight: 700; color: #111; }
+  .detail-cat { font-size: 14px; color: #6B7280; margin-top: 2px; }
+  .detail-close {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: #f3f4f6; color: #9ca3af; font-size: 14px;
+  }
+  .detail-stats { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .detail-info { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .detail-info-row { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #4B5563; }
+  .detail-kakao {
+    display: block; text-align: center; padding: 10px;
+    background: #F3F4F6; border-radius: 12px;
+    font-size: 14px; color: #374151; font-weight: 500; margin-bottom: 12px;
+  }
+  .detail-navi { display: flex; gap: 8px; }
+  .navi-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 12px; border-radius: 12px; border: 1px solid #E5E7EB;
+    font-size: 12px; font-weight: 600; color: #374151;
+  }
+
+  .meal-search {
+    position: absolute; top: 220px; left: 16px; right: 16px;
+    background: white; border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    padding: 16px; z-index: 50;
+  }
+  .meal-title { font-size: 14px; font-weight: 700; color: #111; margin-bottom: 12px; }
+  .meal-toggle {
+    display: flex; gap: 4px; background: #F3F4F6;
+    border-radius: 12px; padding: 4px; margin-bottom: 12px;
+  }
+  .meal-toggle-btn {
+    flex: 1; padding: 8px; border-radius: 8px;
+    text-align: center; font-size: 12px; font-weight: 600; color: #6B7280;
+  }
+  .meal-toggle-btn.active { background: white; color: #3B82F6; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .meal-hours { display: flex; gap: 4px; margin-bottom: 8px; }
+  .hour-btn {
+    flex: 1; padding: 8px 4px; border-radius: 10px;
+    text-align: center; font-size: 12px; font-weight: 600;
+    background: #F3F4F6; color: #4B5563;
+  }
+  .hour-btn.active { background: #3B82F6; color: white; }
+  .meal-desc { font-size: 12px; color: #9CA3AF; margin-bottom: 8px; }
+  .meal-btn {
+    width: 100%; padding: 10px; background: #3B82F6; color: white;
+    border-radius: 12px; text-align: center; font-size: 14px; font-weight: 700; margin-top: 8px;
+  }
+  .meal-location-marker {
+    position: absolute; background: #EF4444; color: white;
+    padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    white-space: nowrap; box-shadow: 0 2px 8px rgba(239,68,68,0.4); z-index: 35;
+  }
+</style>
+</head>
+<body>
+
+<!-- Screen 1: Home -->
+<div class="screen-container">
+  <div class="screen-label">1. 홈 - 지도 + 검색</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="map-bg">
+      <div class="map-roads">
+        <div class="road h1"></div><div class="road h2"></div><div class="road h3"></div>
+        <div class="road v1"></div><div class="road v2"></div><div class="road v3"></div>
+      </div>
+      <div class="search-bar">
+        <div class="search-bar-inner">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <span class="search-text">어디로 갈까요?</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Screen 2: Route + Places -->
+<div class="screen-container">
+  <div class="screen-label">2. 경로 + 장소 추천</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="map-bg">
+      <div class="map-roads">
+        <div class="road h1"></div><div class="road h2"></div><div class="road h3"></div>
+        <div class="road v1"></div><div class="road v2"></div><div class="road v3"></div>
+      </div>
+      <div class="route-line">
+        <svg viewBox="0 0 240 600">
+          <path d="M120 0 Q 140 100, 100 200 Q 60 300, 140 400 Q 180 480, 120 600" stroke="#4285F4" stroke-width="6" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="marker cafe" style="top:260px;left:140px;">☕</div>
+      <div class="marker food selected" style="top:350px;left:100px;">🍽️</div>
+      <div class="marker fuel" style="top:450px;left:180px;">⛽</div>
+      <div class="marker convenience" style="top:300px;left:220px;">🏪</div>
+      <div class="info-overlay" style="top:295px;left:35px;">
+        <div class="info-name">횡성한우국밥</div>
+        <div class="info-cat">한식</div>
+        <div class="info-stats">
+          <span class="info-rating">★ 4.5</span>
+          <span class="info-detour">+3분</span>
+        </div>
+      </div>
+      <div class="route-panel">
+        <div class="route-row">
+          <div class="route-dots"><div class="dot-blue"></div><div class="dot-line"></div><div class="dot-red"></div></div>
+          <div class="route-inputs"><div class="route-input">현재 위치 (서울)</div><div class="route-input">강릉시</div></div>
+          <div class="swap-btn">↕</div>
+        </div>
+        <div class="route-summary">
+          <div class="route-stat time">🕐 2시간 30분</div>
+          <div class="route-stat dist">⚡ 237.5km</div>
+        </div>
+      </div>
+      <div class="category-chips">
+        <div class="chip"><span class="chip-emoji">📍</span> 전체</div>
+        <div class="chip"><span class="chip-emoji">☕</span> 카페</div>
+        <div class="chip"><span class="chip-emoji">⛽</span> 주유소</div>
+        <div class="chip active"><span class="chip-emoji">🍽️</span> 맛집</div>
+        <div class="chip"><span class="chip-emoji">🏪</span> 편의점</div>
+        <div class="chip"><span class="chip-emoji">🅿️</span> 휴게소</div>
+      </div>
+      <div class="card-list">
+        <div class="place-card selected">
+          <div class="card-header"><div class="card-name">횡성한우국밥</div><div class="card-badge badge-green">+3분</div></div>
+          <div class="card-category">한식</div>
+          <div class="card-stats"><span class="card-rating">★ 4.5</span><span class="card-reviews">리뷰 328</span></div>
+          <div class="card-address">강원 횡성군 횡성읍 중앙로 123</div>
+        </div>
+        <div class="place-card">
+          <div class="card-header"><div class="card-name">원주 본가순두부</div><div class="card-badge badge-blue">+5분</div></div>
+          <div class="card-category">한식</div>
+          <div class="card-stats"><span class="card-rating">★ 4.3</span><span class="card-reviews">리뷰 156</span></div>
+          <div class="card-address">강원 원주시 문막읍 건등로 45</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Screen 3: Meal Search -->
+<div class="screen-container">
+  <div class="screen-label">3. 식사 장소 찾기</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="map-bg">
+      <div class="map-roads">
+        <div class="road h1"></div><div class="road h2"></div><div class="road h3"></div>
+        <div class="road v1"></div><div class="road v2"></div><div class="road v3"></div>
+      </div>
+      <div class="route-line">
+        <svg viewBox="0 0 240 600"><path d="M120 0 Q 140 100, 100 200 Q 60 300, 140 400 Q 180 480, 120 600" stroke="#4285F4" stroke-width="6" fill="none" stroke-linecap="round"/></svg>
+      </div>
+      <div class="meal-location-marker" style="top:340px;left:100px;">🍽️ 식사 예상 위치</div>
+      <div class="route-panel">
+        <div class="route-row">
+          <div class="route-dots"><div class="dot-blue"></div><div class="dot-line"></div><div class="dot-red"></div></div>
+          <div class="route-inputs"><div class="route-input">현재 위치 (서울)</div><div class="route-input">강릉시</div></div>
+          <div class="swap-btn">↕</div>
+        </div>
+        <div class="route-summary">
+          <div class="route-stat time">🕐 2시간 30분</div>
+          <div class="route-stat dist">⚡ 237.5km</div>
+        </div>
+      </div>
+      <div class="meal-search">
+        <div class="meal-title">🍽️ 식사 장소 찾기</div>
+        <div class="meal-toggle">
+          <div class="meal-toggle-btn active">시간으로 찾기</div>
+          <div class="meal-toggle-btn">지역으로 찾기</div>
+        </div>
+        <div class="meal-desc">출발 후 몇 시간 뒤에 식사하실 건가요?</div>
+        <div class="meal-hours">
+          <div class="hour-btn">0.5시간</div>
+          <div class="hour-btn active">1시간</div>
+          <div class="hour-btn">1.5시간</div>
+          <div class="hour-btn">2시간</div>
+          <div class="hour-btn">3시간</div>
+        </div>
+        <div class="meal-btn">맛집 찾기</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Screen 4: Place Detail -->
+<div class="screen-container">
+  <div class="screen-label">4. 장소 상세 + 내비</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="map-bg">
+      <div class="map-roads">
+        <div class="road h1"></div><div class="road h2"></div><div class="road h3"></div>
+        <div class="road v1"></div><div class="road v2"></div><div class="road v3"></div>
+      </div>
+      <div class="route-line">
+        <svg viewBox="0 0 240 600"><path d="M120 0 Q 140 100, 100 200 Q 60 300, 140 400 Q 180 480, 120 600" stroke="#4285F4" stroke-width="6" fill="none" stroke-linecap="round"/></svg>
+      </div>
+      <div class="marker food selected" style="top:350px;left:100px;">🍽️</div>
+      <div class="detail-sheet" style="height: 380px;">
+        <div class="detail-handle"></div>
+        <div class="detail-header">
+          <div><div class="detail-name">횡성한우국밥</div><div class="detail-cat">한식</div></div>
+          <div class="detail-close">✕</div>
+        </div>
+        <div class="detail-stats">
+          <span style="color:#F59E0B;font-weight:700;font-size:14px;">★ 4.5</span>
+          <span style="font-size:12px;color:#9CA3AF;">리뷰 328개</span>
+          <span style="font-size:12px;font-weight:700;padding:2px 8px;background:#DCFCE7;color:#15803D;border-radius:10px;">경로 이탈 +3분</span>
+        </div>
+        <div class="detail-info">
+          <div class="detail-info-row">📍 강원 횡성군 횡성읍 중앙로 123</div>
+          <div class="detail-info-row">📞 <span style="color:#3B82F6;">033-345-6789</span></div>
+        </div>
+        <div class="detail-kakao">카카오맵에서 리뷰·사진 보기 →</div>
+        <div class="detail-navi">
+          <div class="navi-btn">🗺️ 카카오내비</div>
+          <div class="navi-btn">🧭 네이버지도</div>
+          <div class="navi-btn">🚗 T맵</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

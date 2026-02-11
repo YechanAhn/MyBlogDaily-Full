@@ -1,0 +1,8 @@
+- generic [ref=e2]:
+  - generic [ref=e6]:
+    - generic [ref=e7]: 🗺️
+    - paragraph [ref=e8]: 지도를 불러오는 중...
+    - paragraph [ref=e9]: 카카오맵 API 키를 확인해주세요
+  - generic [ref=e12]:
+    - img [ref=e13]
+    - textbox "어디로 갈까요?" [ref=e16]

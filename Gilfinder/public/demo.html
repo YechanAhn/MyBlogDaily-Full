@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>길위의발견 - GilFinder Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    background: #f0f0f0;
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    padding: 32px;
+    flex-wrap: wrap;
+    min-height: 100vh;
+  }
+
+  .phone-frame {
+    width: 375px;
+    height: 812px;
+    background: #fff;
+    border-radius: 40px;
+    overflow: hidden;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.15), 0 0 0 2px #1a1a1a;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .phone-frame::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 150px;
+    height: 30px;
+    background: #1a1a1a;
+    border-radius: 0 0 20px 20px;
+    z-index: 100;
+  }
+
+  .screen-label {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #666;
+    margin-top: 12px;
+    letter-spacing: -0.3px;
+  }
+
+  .screen {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .screen::-webkit-scrollbar { display: none; }
+
+  /* ===== HOME SCREEN ===== */
+  .home {
+    background: linear-gradient(180deg, #EFF6FF 0%, #fff 40%);
+    padding-top: 56px;
+  }
+
+  .home-header {
+    padding: 0 20px;
+    margin-bottom: 20px;
+  }
+
+  .home-header h1 {
+    font-size: 24px;
+    font-weight: 900;
+    color: #111827;
+    letter-spacing: -0.5px;
+  }
+
+  .home-header p {
+    font-size: 13px;
+    color: #9CA3AF;
+    margin-top: 4px;
+  }
+
+  .input-group {
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .input-row {
+    position: relative;
+  }
+
+  .input-dot {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .input-dot.blue { background: #3B82F6; }
+  .input-dot.red { background: #EF4444; }
+
+  .input-field {
+    width: 100%;
+    padding: 14px 16px 14px 38px;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    font-size: 15px;
+    background: #fff;
+    color: #111;
+    outline: none;
+  }
+
+  .input-field::placeholder { color: #9CA3AF; }
+  .input-field:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+
+  .detour-filter {
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .detour-label {
+    font-size: 12px;
+    color: #9CA3AF;
+    flex-shrink: 0;
+  }
+
+  .detour-options {
+    display: flex;
+    background: #F3F4F6;
+    border-radius: 8px;
+    padding: 2px;
+  }
+
+  .detour-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    background: transparent;
+    color: #9CA3AF;
+    transition: all 0.2s;
+  }
+
+  .detour-btn.active {
+    background: #fff;
+    color: #111;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  /* Category Tabs */
+  .category-tabs {
+    padding: 18px 20px 0;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .category-tabs::-webkit-scrollbar { display: none; }
+
+  .cat-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 50px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .cat-btn.inactive {
+    background: #F3F4F6;
+    color: #374151;
+  }
+
+  .cat-btn.active {
+    background: #3B82F6;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+  }
+
+  /* Food options */
+  .food-options {
+    margin: 14px 20px 0;
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #F3F4F6;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .meal-time-btn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: #F9FAFB;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+  }
+
+  .meal-time-btn .label { font-size: 13px; color: #6B7280; }
+  .meal-time-btn .value { font-size: 13px; font-weight: 600; color: #3B82F6; }
+
+  .rating-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .rating-label { font-size: 12px; color: #9CA3AF; flex-shrink: 0; }
+
+  .rating-btns { display: flex; gap: 6px; }
+
+  .rating-btn {
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .rating-btn.inactive { background: #F3F4F6; color: #6B7280; }
+  .rating-btn.active { background: #FBBF24; color: #fff; box-shadow: 0 2px 6px rgba(251,191,36,0.3); }
+
+  /* Search button */
+  .search-btn {
+    margin: 24px 20px;
+    width: calc(100% - 40px);
+    padding: 16px;
+    background: #3B82F6;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(59,130,246,0.3);
+    transition: all 0.2s;
+  }
+
+  .search-btn:active { transform: scale(0.98); }
+
+  /* Info card */
+  .info-card {
+    margin: 0 20px 24px;
+    padding: 16px;
+    background: #EFF6FF;
+    border: 1px solid #DBEAFE;
+    border-radius: 12px;
+  }
+
+  .info-card h3 { font-size: 13px; font-weight: 700; color: #1E3A8A; margin-bottom: 8px; }
+  .info-card li { font-size: 11px; color: #1D4ED8; line-height: 1.8; list-style: none; }
+  .info-card .example { font-size: 11px; color: #60A5FA; margin-top: 8px; }
+
+  /* ===== RESULT SCREEN ===== */
+  .result { background: #F9FAFB; display: flex; flex-direction: column; height: 100%; }
+
+  .result-topbar {
+    background: #fff;
+    border-bottom: 1px solid #E5E7EB;
+    padding: 44px 16px 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .back-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 18px;
+  }
+
+  .route-info { flex: 1; }
+  .route-info .distance { font-size: 14px; font-weight: 600; color: #111; }
+  .route-info .separator { color: #D1D5DB; margin: 0 6px; }
+  .route-info .duration { color: #3B82F6; font-weight: 500; font-size: 14px; }
+
+  .result-badge {
+    font-size: 11px;
+    background: #DBEAFE;
+    color: #1D4ED8;
+    padding: 4px 10px;
+    border-radius: 50px;
+    font-weight: 500;
+  }
+
+  /* Mock Map */
+  .map-area {
+    flex: 1;
+    position: relative;
+    background: #E8F0FE;
+    overflow: hidden;
+    min-height: 300px;
+  }
+
+  .map-bg {
+    width: 100%; height: 100%;
+    background:
+      linear-gradient(135deg, #dce9f7 25%, transparent 25%),
+      linear-gradient(225deg, #dce9f7 25%, transparent 25%),
+      linear-gradient(45deg, #dce9f7 25%, transparent 25%),
+      linear-gradient(315deg, #dce9f7 25%, transparent 25%);
+    background-size: 60px 60px;
+    background-color: #e8f0fe;
+    opacity: 0.5;
+  }
+
+  /* Route polyline mockup */
+  .mock-route {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+  }
+
+  .mock-route svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Map markers */
+  .marker {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: translate(-50%, -100%);
+    z-index: 10;
+  }
+
+  .marker-pin {
+    width: 30px;
+    height: 30px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+
+  .marker-pin span {
+    transform: rotate(45deg);
+    font-size: 12px;
+  }
+
+  .marker-label {
+    background: #fff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    margin-top: 4px;
+    white-space: nowrap;
+  }
+
+  /* Meal location */
+  .meal-marker {
+    position: absolute;
+    background: #EF4444;
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(239,68,68,0.4);
+    transform: translate(-50%, -50%);
+    z-index: 15;
+  }
+
+  /* Selected place info */
+  .info-bubble {
+    position: absolute;
+    background: #fff;
+    border-radius: 8px;
+    padding: 8px 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-size: 12px;
+    z-index: 20;
+    transform: translate(-50%, -110%);
+    min-width: 160px;
+  }
+
+  .info-bubble strong { display: block; font-size: 13px; margin-bottom: 2px; }
+  .info-bubble .cat { color: #666; font-size: 11px; }
+  .info-bubble .detour { color: #3B82F6; font-size: 12px; font-weight: 500; }
+
+  /* Selected action bar */
+  .selected-bar {
+    background: #fff;
+    border-top: 1px solid #E5E7EB;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .selected-info { flex: 1; min-width: 0; }
+  .selected-info .name { font-size: 14px; font-weight: 700; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .selected-info .addr { font-size: 12px; color: #9CA3AF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .navi-btn {
+    padding: 10px 16px;
+    background: #3B82F6;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* Bottom card list */
+  .card-list-area {
+    background: #fff;
+    border-top: 1px solid #E5E7EB;
+    padding: 12px 0 8px;
+    flex-shrink: 0;
+  }
+
+  .card-scroll {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 0 16px 8px;
+    scroll-snap-type: x mandatory;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .card-scroll::-webkit-scrollbar { display: none; }
+
+  .place-card {
+    flex-shrink: 0;
+    width: 260px;
+    scroll-snap-align: center;
+    border-radius: 12px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid #E5E7EB;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
+  .place-card.selected {
+    background: #EFF6FF;
+    border: 2px solid #3B82F6;
+    box-shadow: 0 4px 12px rgba(59,130,246,0.15);
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }
+
+  .card-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .card-detour {
+    font-size: 11px;
+    font-weight: 600;
+    color: #3B82F6;
+    background: #DBEAFE;
+    padding: 2px 8px;
+    border-radius: 50px;
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+
+  .card-category {
+    font-size: 11px;
+    color: #9CA3AF;
+    margin-bottom: 6px;
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .card-rating { font-size: 12px; color: #CA8A04; font-weight: 500; }
+  .card-reviews { font-size: 11px; color: #9CA3AF; }
+  .card-price { font-size: 13px; color: #EF4444; font-weight: 700; }
+  .card-self { font-size: 10px; background: #DCFCE7; color: #15803D; padding: 2px 6px; border-radius: 4px; }
+
+  .card-address { font-size: 11px; color: #6B7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ===== NAVI SELECTOR ===== */
+  .navi-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 50;
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .navi-sheet {
+    width: 100%;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 20px 32px;
+    animation: sheetUp 0.3s ease-out;
+  }
+
+  @keyframes sheetUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .navi-handle {
+    width: 40px;
+    height: 4px;
+    background: #D1D5DB;
+    border-radius: 2px;
+    margin: 0 auto 16px;
+  }
+
+  .navi-title { font-size: 18px; font-weight: 700; color: #111; margin-bottom: 4px; }
+  .navi-waypoint { font-size: 13px; color: #9CA3AF; margin-bottom: 16px; }
+  .navi-waypoint span { color: #3B82F6; font-weight: 500; }
+
+  .navi-buttons { display: flex; gap: 12px; }
+
+  .navi-app-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 0;
+    border-radius: 12px;
+    border: 2px solid #F3F4F6;
+    cursor: pointer;
+    background: transparent;
+    transition: all 0.2s;
+  }
+
+  .navi-app-btn:active { transform: scale(0.95); }
+  .navi-app-btn.kakao { background: rgba(254,229,0,0.08); }
+  .navi-app-btn.naver { background: rgba(3,199,90,0.08); }
+  .navi-app-btn.tmap { background: rgba(239,65,53,0.08); }
+
+  .navi-icon { font-size: 24px; }
+  .navi-name { font-size: 13px; font-weight: 600; color: #374151; }
+
+  .navi-cancel {
+    width: 100%;
+    padding: 12px;
+    margin-top: 12px;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: #9CA3AF;
+    cursor: pointer;
+  }
+
+  /* Label */
+  .screen-title-bar {
+    text-align: center;
+    padding: 16px 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #999;
+    background: #f0f0f0;
+    width: 375px;
+    border-radius: 0 0 12px 12px;
+    margin-top: -4px;
+  }
+
+  .col { display: flex; flex-direction: column; align-items: center; }
+
+  /* ===== TIME PICKER MODAL ===== */
+  .modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+
+  .time-modal {
+    width: 100%;
+    max-width: 340px;
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+
+  .time-modal h3 { font-size: 18px; font-weight: 700; color: #111; margin-bottom: 16px; }
+
+  .preset-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .preset-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 0;
+    border-radius: 12px;
+    border: 2px solid #F3F4F6;
+    cursor: pointer;
+    background: #fff;
+    transition: all 0.2s;
+  }
+
+  .preset-btn.active {
+    border-color: #3B82F6;
+    background: #EFF6FF;
+  }
+
+  .preset-btn .emoji { font-size: 20px; margin-bottom: 4px; }
+  .preset-btn .text { font-size: 12px; font-weight: 500; color: #374151; }
+
+  .time-input-label { font-size: 13px; color: #6B7280; margin-bottom: 6px; }
+
+  .time-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    font-size: 18px;
+    text-align: center;
+    outline: none;
+    margin-bottom: 20px;
+  }
+
+  .time-input:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+
+  .time-actions { display: flex; gap: 12px; }
+
+  .time-cancel {
+    flex: 1;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #E5E7EB;
+    background: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6B7280;
+    cursor: pointer;
+  }
+
+  .time-confirm {
+    flex: 1;
+    padding: 12px;
+    border-radius: 12px;
+    border: none;
+    background: #3B82F6;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== SCREEN 1: HOME ===== -->
+<div class="col">
+<div class="phone-frame">
+  <div class="screen home">
+    <div class="home-header">
+      <h1>길위의발견</h1>
+      <p>가는 길이 즐거워지는 순간</p>
+    </div>
+
+    <div class="input-group">
+      <div class="input-row">
+        <div class="input-dot blue"></div>
+        <input class="input-field" value="37.5665,126.978" placeholder="출발지 입력 (위도,경도)">
+      </div>
+      <div class="input-row">
+        <div class="input-dot red"></div>
+        <input class="input-field" value="35.1796,129.0756" placeholder="도착지 입력 (위도,경도)">
+      </div>
+    </div>
+
+    <div class="detour-filter">
+      <span class="detour-label">경로 이탈</span>
+      <div class="detour-options">
+        <button class="detour-btn">+3분</button>
+        <button class="detour-btn active">+5분</button>
+        <button class="detour-btn">+10분</button>
+      </div>
+    </div>
+
+    <div class="category-tabs">
+      <button class="cat-btn inactive">☕ 커피</button>
+      <button class="cat-btn inactive">⛽ 주유소</button>
+      <button class="cat-btn active">🍽️ 맛집</button>
+      <button class="cat-btn inactive">🏪 편의점</button>
+      <button class="cat-btn inactive">🔋 충전소</button>
+      <button class="cat-btn inactive">🔍 직접입력</button>
+    </div>
+
+    <div class="food-options">
+      <button class="meal-time-btn">
+        <span class="label">식사 시간</span>
+        <span class="value">☀️ 점심 (12:00)</span>
+      </button>
+      <div class="rating-row">
+        <span class="rating-label">최소 평점</span>
+        <div class="rating-btns">
+          <button class="rating-btn inactive">★ 3.0</button>
+          <button class="rating-btn inactive">★ 3.5</button>
+          <button class="rating-btn active">★ 4.0</button>
+          <button class="rating-btn inactive">★ 4.5</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="search-btn">경로 위 장소 검색</button>
+
+    <div class="info-card">
+      <h3>💡 사용 방법</h3>
+      <ul>
+        <li>1. 출발지와 도착지를 위도,경도 형식으로 입력</li>
+        <li>2. 원하는 카테고리를 선택</li>
+        <li>3. 검색 버튼을 눌러 경로 위 장소를 찾으세요</li>
+        <li>4. 원하는 장소를 선택하고 내비로 바로 출발!</li>
+      </ul>
+      <p class="example">예시: 서울 (37.5665,126.978) → 부산 (35.1796,129.0756)</p>
+    </div>
+  </div>
+</div>
+<div class="screen-title-bar">홈 화면 (Home)</div>
+</div>
+
+<!-- ===== SCREEN 2: RESULT ===== -->
+<div class="col">
+<div class="phone-frame">
+  <div class="screen result">
+    <div class="result-topbar">
+      <button class="back-btn">‹</button>
+      <div class="route-info">
+        <span class="distance">389.5km</span>
+        <span class="separator">|</span>
+        <span class="duration">4시간 12분</span>
+      </div>
+      <span class="result-badge">8개 발견</span>
+    </div>
+
+    <div class="map-area">
+      <div class="map-bg"></div>
+
+      <!-- Route line -->
+      <div class="mock-route">
+        <svg viewBox="0 0 375 400" fill="none">
+          <path d="M 60 50 C 80 80, 100 120, 140 160 S 200 220, 240 260 S 280 320, 320 370" stroke="#3B82F6" stroke-width="5" stroke-linecap="round" fill="none" stroke-dasharray="0"/>
+          <circle cx="60" cy="50" r="8" fill="#3B82F6"/>
+          <circle cx="320" cy="370" r="8" fill="#EF4444"/>
+        </svg>
+      </div>
+
+      <!-- Meal location -->
+      <div class="meal-marker" style="top: 42%; left: 46%;">🍽️ 식사 예상 위치</div>
+
+      <!-- Place markers -->
+      <div class="marker" style="top: 22%; left: 32%;">
+        <div class="marker-pin" style="background:#FF6B35;"><span>☕</span></div>
+        <div class="marker-label">스타벅스 천안DT</div>
+      </div>
+
+      <div class="marker" style="top: 35%; left: 42%;">
+        <div class="marker-pin" style="background:#22C55E;"><span>⛽</span></div>
+        <div class="marker-label">GS칼텍스 1,580원</div>
+      </div>
+
+      <div class="marker" style="top: 50%; left: 55%;">
+        <div class="marker-pin" style="background:#EF4444;"><span>🍽️</span></div>
+        <div class="marker-label" style="font-weight:700;color:#3B82F6;">교동짬뽕</div>
+      </div>
+
+      <div class="marker" style="top: 62%; left: 63%;">
+        <div class="marker-pin" style="background:#FF6B35;"><span>☕</span></div>
+        <div class="marker-label">이디야 대전둔산</div>
+      </div>
+
+      <div class="marker" style="top: 78%; left: 72%;">
+        <div class="marker-pin" style="background:#EF4444;"><span>🍽️</span></div>
+        <div class="marker-label">한우명가</div>
+      </div>
+
+      <!-- Info bubble for selected -->
+      <div class="info-bubble" style="top: 50%; left: 55%;">
+        <strong>교동짬뽕 대전본점</strong>
+        <div class="cat">중식</div>
+        <div class="detour">+2분 이탈</div>
+      </div>
+    </div>
+
+    <!-- Selected place bar -->
+    <div class="selected-bar">
+      <div class="selected-info">
+        <div class="name">교동짬뽕 대전본점</div>
+        <div class="addr">대전 서구 둔산로 123</div>
+      </div>
+      <button class="navi-btn">내비 출발</button>
+    </div>
+
+    <!-- Card list -->
+    <div class="card-list-area">
+      <div class="card-scroll">
+        <div class="place-card">
+          <div class="card-top">
+            <div class="card-name">스타벅스 천안DT</div>
+            <div class="card-detour">+1분</div>
+          </div>
+          <div class="card-category">카페</div>
+          <div class="card-meta">
+            <span class="card-rating">★ 4.3</span>
+            <span class="card-reviews">리뷰 142</span>
+          </div>
+          <div class="card-address">충남 천안시 서북구 성정동 1234</div>
+        </div>
+
+        <div class="place-card selected">
+          <div class="card-top">
+            <div class="card-name">교동짬뽕 대전본점</div>
+            <div class="card-detour">+2분</div>
+          </div>
+          <div class="card-category">중식</div>
+          <div class="card-meta">
+            <span class="card-rating">★ 4.5</span>
+            <span class="card-reviews">리뷰 528</span>
+          </div>
+          <div class="card-address">대전 서구 둔산로 123</div>
+        </div>
+
+        <div class="place-card">
+          <div class="card-top">
+            <div class="card-name">한우명가 김천점</div>
+            <div class="card-detour">+3분</div>
+          </div>
+          <div class="card-category">한식</div>
+          <div class="card-meta">
+            <span class="card-rating">★ 4.7</span>
+            <span class="card-reviews">리뷰 312</span>
+          </div>
+          <div class="card-address">경북 김천시 율곡동 567</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="screen-title-bar">결과 화면 (Result Map)</div>
+</div>
+
+<!-- ===== SCREEN 3: NAVI SELECTOR ===== -->
+<div class="col">
+<div class="phone-frame">
+  <div class="screen result" style="position:relative;">
+    <div class="result-topbar">
+      <button class="back-btn">‹</button>
+      <div class="route-info">
+        <span class="distance">389.5km</span>
+        <span class="separator">|</span>
+        <span class="duration">4시간 12분</span>
+      </div>
+      <span class="result-badge">8개 발견</span>
+    </div>
+
+    <div class="map-area" style="filter:blur(1px);opacity:0.5;">
+      <div class="map-bg"></div>
+      <div class="mock-route">
+        <svg viewBox="0 0 375 400" fill="none">
+          <path d="M 60 50 C 80 80, 100 120, 140 160 S 200 220, 240 260 S 280 320, 320 370" stroke="#3B82F6" stroke-width="5" stroke-linecap="round" fill="none"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Navi selector overlay -->
+    <div class="navi-overlay">
+      <div class="navi-sheet">
+        <div class="navi-handle"></div>
+        <div class="navi-title">내비게이션 선택</div>
+        <div class="navi-waypoint">경유지: <span>교동짬뽕 대전본점</span></div>
+        <div class="navi-buttons">
+          <button class="navi-app-btn kakao">
+            <span class="navi-icon">🗺️</span>
+            <span class="navi-name">카카오내비</span>
+          </button>
+          <button class="navi-app-btn naver">
+            <span class="navi-icon">🧭</span>
+            <span class="navi-name">네이버지도</span>
+          </button>
+          <button class="navi-app-btn tmap">
+            <span class="navi-icon">🚗</span>
+            <span class="navi-name">T맵</span>
+          </button>
+        </div>
+        <button class="navi-cancel">취소</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="screen-title-bar">내비 선택 (Navi Selector)</div>
+</div>
+
+<!-- ===== SCREEN 4: TIME PICKER ===== -->
+<div class="col">
+<div class="phone-frame">
+  <div class="screen home" style="position:relative; filter:none;">
+    <div class="home-header" style="opacity:0.3;">
+      <h1>길위의발견</h1>
+      <p>가는 길이 즐거워지는 순간</p>
+    </div>
+
+    <div style="opacity:0.3; padding: 0 20px;">
+      <div class="input-row" style="margin-bottom:10px;">
+        <div class="input-dot blue"></div>
+        <input class="input-field" value="37.5665,126.978" disabled>
+      </div>
+    </div>
+
+    <!-- Time picker modal -->
+    <div class="modal-overlay">
+      <div class="time-modal">
+        <h3>🍽️ 식사 시간 선택</h3>
+
+        <div class="preset-grid">
+          <button class="preset-btn">
+            <span class="emoji">⏰</span>
+            <span class="text">지금</span>
+          </button>
+          <button class="preset-btn">
+            <span class="emoji">🌅</span>
+            <span class="text">아침</span>
+          </button>
+          <button class="preset-btn active">
+            <span class="emoji">☀️</span>
+            <span class="text">점심</span>
+          </button>
+          <button class="preset-btn">
+            <span class="emoji">🌙</span>
+            <span class="text">저녁</span>
+          </button>
+        </div>
+
+        <div class="time-input-label">직접 입력</div>
+        <input type="time" class="time-input" value="12:00">
+
+        <div class="time-actions">
+          <button class="time-cancel">취소</button>
+          <button class="time-confirm">확인</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="screen-title-bar">식사 시간 선택 (Time Picker)</div>
+</div>
+
+</body>
+</html>

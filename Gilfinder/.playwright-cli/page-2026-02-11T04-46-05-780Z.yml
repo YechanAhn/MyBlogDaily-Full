@@ -1,0 +1,87 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e5]:
+      - img [ref=e21]
+      - generic [ref=e22]:
+        - generic [ref=e25]: 250m
+        - link "Kakao 맵으로 이동(새창열림)" [ref=e27] [cursor=pointer]:
+          - /url: http://map.kakao.com/
+          - img "Kakao 맵으로 이동(새창열림)" [ref=e28]
+      - generic [ref=e29]:
+        - button "확대" [ref=e30] [cursor=pointer]
+        - button "축소" [ref=e38] [cursor=pointer]
+      - img [ref=e41]
+      - generic [ref=e42]:
+        - generic [ref=e45]: 250m
+        - link "Kakao 맵으로 이동(새창열림)" [ref=e47] [cursor=pointer]:
+          - /url: http://map.kakao.com/
+          - img "Kakao 맵으로 이동(새창열림)" [ref=e48]
+      - generic [ref=e49]:
+        - button "확대" [ref=e50] [cursor=pointer]
+        - button "축소" [ref=e58] [cursor=pointer]
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - button [ref=e59] [cursor=pointer]:
+          - img [ref=e60]
+        - img [ref=e13]
+        - textbox "도착지를 검색하세요" [active] [ref=e62]: 부산역
+        - button [ref=e63] [cursor=pointer]:
+          - img [ref=e64]
+      - generic [ref=e66]:
+        - button "부산역 부산 동구 중앙대로 206" [ref=e67] [cursor=pointer]:
+          - img [ref=e69]
+          - generic [ref=e72]:
+            - paragraph [ref=e73]: 부산역
+            - paragraph [ref=e74]: 부산 동구 중앙대로 206
+        - button "부산역 부산1호선 부산 동구 중앙대로 지하 200 지하철역" [ref=e75] [cursor=pointer]:
+          - img [ref=e77]
+          - generic [ref=e80]:
+            - paragraph [ref=e81]: 부산역 부산1호선
+            - paragraph [ref=e82]: 부산 동구 중앙대로 지하 200
+            - paragraph [ref=e83]: 지하철역
+        - button "라마다 앙코르 부산역 호텔 부산 동구 중앙대로196번길 10 숙박" [ref=e84] [cursor=pointer]:
+          - img [ref=e86]
+          - generic [ref=e89]:
+            - paragraph [ref=e90]: 라마다 앙코르 부산역 호텔
+            - paragraph [ref=e91]: 부산 동구 중앙대로196번길 10
+            - paragraph [ref=e92]: 숙박
+        - button "부산역 선상주차장 부산 동구 중앙대로 206 주차장" [ref=e93] [cursor=pointer]:
+          - img [ref=e95]
+          - generic [ref=e98]:
+            - paragraph [ref=e99]: 부산역 선상주차장
+            - paragraph [ref=e100]: 부산 동구 중앙대로 206
+            - paragraph [ref=e101]: 주차장
+        - button "부산역 선상B 주차장 부산 동구 중앙대로 206 주차장" [ref=e102] [cursor=pointer]:
+          - img [ref=e104]
+          - generic [ref=e107]:
+            - paragraph [ref=e108]: 부산역 선상B 주차장
+            - paragraph [ref=e109]: 부산 동구 중앙대로 206
+            - paragraph [ref=e110]: 주차장
+        - button "부산역 북항주차장 부산 동구 초량동 1185-16 주차장" [ref=e111] [cursor=pointer]:
+          - img [ref=e113]
+          - generic [ref=e116]:
+            - paragraph [ref=e117]: 부산역 북항주차장
+            - paragraph [ref=e118]: 부산 동구 초량동 1185-16
+            - paragraph [ref=e119]: 주차장
+        - button "부산역광장 부산 동구 초량동 1202" [ref=e120] [cursor=pointer]:
+          - img [ref=e122]
+          - generic [ref=e125]:
+            - paragraph [ref=e126]: 부산역광장
+            - paragraph [ref=e127]: 부산 동구 초량동 1202
+        - button "부산역 르이데아호텔 부산 동구 중앙대로180번길 16-10 숙박" [ref=e128] [cursor=pointer]:
+          - img [ref=e130]
+          - generic [ref=e133]:
+            - paragraph [ref=e134]: 부산역 르이데아호텔
+            - paragraph [ref=e135]: 부산 동구 중앙대로180번길 16-10
+            - paragraph [ref=e136]: 숙박
+        - button "부산시티투어 부산역안내센터 부산 동구 중앙대로 206" [ref=e137] [cursor=pointer]:
+          - img [ref=e139]
+          - generic [ref=e142]:
+            - paragraph [ref=e143]: 부산시티투어 부산역안내센터
+            - paragraph [ref=e144]: 부산 동구 중앙대로 206
+        - button "부산역삼정그린코아더시티오피스텔 부산 동구 중앙대로179번길 27" [ref=e145] [cursor=pointer]:
+          - img [ref=e147]
+          - generic [ref=e150]:
+            - paragraph [ref=e151]: 부산역삼정그린코아더시티오피스텔
+            - paragraph [ref=e152]: 부산 동구 중앙대로179번길 27
+  - alert [ref=e18]
