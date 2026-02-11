@@ -28,11 +28,14 @@ export async function searchAlongRoute(
   category: SearchCategory,
   customKeyword?: string,
   maxDetourMin: number = 5,
-  originalDuration?: number
+  originalDuration?: number,
+  onProgress?: (percent: number, text: string) => void
 ): Promise<Place[]> {
   const catInfo = CATEGORY_MAP[category];
   const keyword = category === 'custom' ? (customKeyword || '') : catInfo.keyword;
   if (!keyword && !catInfo.code) return [];
+
+  onProgress?.(35, '경로 분석 중...');
 
   // 총 거리 계산
   const totalDistanceKm = calculateTotalDistance(polyline);
@@ -41,10 +44,18 @@ export async function searchAlongRoute(
   const samplePoints = samplePolyline(polyline, intervalKm);
   const allResults: Place[] = [];
   const seenIds = new Set<string>();
+  const totalBatches = Math.ceil(samplePoints.length / 3);
+
+  onProgress?.(40, '주변 장소 검색 중...');
 
   // Search in batches of 3 to be gentle on API
   for (let i = 0; i < samplePoints.length; i += 3) {
     const batch = samplePoints.slice(i, i + 3);
+    const batchIdx = Math.floor(i / 3);
+    // 40% ~ 65% 구간에서 검색 진행률 표시
+    const searchProgress = 40 + Math.round((batchIdx / totalBatches) * 25);
+    onProgress?.(searchProgress, `장소 검색 중... (${batchIdx + 1}/${totalBatches})`);
+
     const promises = batch.map((point) =>
       fetchPlaces(keyword, point.lng, point.lat, radius, catInfo.code)
     );
@@ -61,6 +72,8 @@ export async function searchAlongRoute(
     }
   }
 
+  onProgress?.(68, `${allResults.length}개 장소 필터링 중...`);
+
   // 휴게소 필터링: 이름에 "휴게소" 포함 필수, "졸음"/"간이" 제외
   let filtered = allResults;
   if (category === 'rest') {
@@ -74,13 +87,16 @@ export async function searchAlongRoute(
   // 경로를 5등분하여 세그먼트별 상위 6개씩 선택 (총 30개)
   const candidates = selectBySegments(filtered, polyline, 5, 6);
 
+  onProgress?.(72, '우회 시간 계산 중...');
   let withDetour = await calculateDetourTimes(candidates, polyline, originalDuration);
 
   // 주유소 카테고리일 때 OPINET API로 가격 데이터 보강
   if (category === 'fuel') {
+    onProgress?.(85, '주유소 가격 조회 중...');
     withDetour = await enrichFuelPrices(withDetour);
   }
 
+  onProgress?.(92, '결과 정렬 중...');
   const results = withDetour.filter(p => p.detourMinutes <= maxDetourMin);
 
   // 주유소: 최저가 기준 정렬
@@ -254,37 +270,32 @@ function nearestRouteDistance(polyline: LatLng[], point: LatLng): number {
 }
 
 /**
- * 주유소 가격 데이터 보강 - 대표 좌표 하나로 API 한번만 호출
+ * 주유소 가격 데이터 보강 - 서버 캐시에서 일괄 매칭
  */
 async function enrichFuelPrices(places: Place[]): Promise<Place[]> {
   if (places.length === 0) return places;
 
   try {
-    // 전체 주유소의 중심 좌표 계산
-    const avgLat = places.reduce((s, p) => s + p.lat, 0) / places.length;
-    const avgLng = places.reduce((s, p) => s + p.lng, 0) / places.length;
-
-    const params = new URLSearchParams({
-      x: avgLng.toString(),
-      y: avgLat.toString(),
-      radius: '5000',
+    const res = await fetch('/api/fuel-match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stations: places.map(p => ({ name: p.name, lat: p.lat, lng: p.lng })),
+      }),
     });
-    const res = await fetch(`/api/fuel?${params.toString()}`);
     if (!res.ok) return places;
     const data = await res.json();
-    const cachedStations = data.fuelPrices || [];
+    const prices: ({ price: number; prodcd: string; isSelf: boolean } | null)[] = data.prices || [];
 
-    return places.map(place => {
-      if (cachedStations.length > 0) {
-        const matched = matchFuelPrice(place, cachedStations);
-        if (matched) {
-          return {
-            ...place,
-            fuelPrice: matched.price,
-            fuelType: matched.prodcd,
-            isSelfService: matched.isSelf,
-          };
-        }
+    return places.map((place, i) => {
+      const match = prices[i];
+      if (match) {
+        return {
+          ...place,
+          fuelPrice: match.price,
+          fuelType: match.prodcd,
+          isSelfService: match.isSelf,
+        };
       }
       if (place.name.includes('셀프')) {
         return { ...place, isSelfService: true };
@@ -294,42 +305,6 @@ async function enrichFuelPrices(places: Place[]): Promise<Place[]> {
   } catch {
     return places;
   }
-}
-
-/**
- * OPINET 캐시 데이터에서 장소명/좌표로 가격 매칭
- */
-function matchFuelPrice(
-  place: Place,
-  cachedStations: any[]
-): { price: number; prodcd: string; isSelf: boolean } | null {
-  if (!cachedStations?.length) return null;
-
-  const normalized = place.name.replace(/주유소|셀프|self|㈜|\(주\)/gi, '').trim();
-
-  // 1차: 이름 매칭
-  for (const s of cachedStations) {
-    const sName = s.OS_NM || '';
-    const sNorm = sName.replace(/주유소|셀프|self|㈜|\(주\)/gi, '').trim();
-    if (normalized.includes(sNorm) || sNorm.includes(normalized) || normalized === sNorm) {
-      return {
-        price: s.PRICE,
-        prodcd: s.PRODCD,
-        isSelf: place.name.includes('셀프') || sName.includes('셀프'),
-      };
-    }
-  }
-
-  // 2차: 가장 가까운 주유소 사용 (이미 거리순 정렬된 상태)
-  if (cachedStations[0]?.PRICE) {
-    return {
-      price: cachedStations[0].PRICE,
-      prodcd: cachedStations[0].PRODCD,
-      isSelf: place.name.includes('셀프') || (cachedStations[0].OS_NM || '').includes('셀프'),
-    };
-  }
-
-  return null;
 }
 
 async function fetchPlaces(

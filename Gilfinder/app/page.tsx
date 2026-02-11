@@ -134,26 +134,34 @@ export default function HomePage() {
     setIsLoading(true);
     setSelectedPlace(null);
     setShowDetail(false);
-    setLoadingProgress(40);
-    setLoadingText('장소 검색 중...');
+    setLoadingProgress(30);
+    setLoadingText('장소 검색 준비 중...');
 
     try {
       const keyword = cat === 'custom' ? customKeyword : undefined;
-      const found = await searchAlongRoute(polyline, cat, keyword, maxDetourMin, totalDuration);
-      setLoadingProgress(80);
+      const found = await searchAlongRoute(
+        polyline, cat, keyword, maxDetourMin, totalDuration,
+        (percent, text) => {
+          setLoadingProgress(percent);
+          setLoadingText(text);
+        }
+      );
+
+      setLoadingProgress(95);
       setLoadingText('결과 정렬 중...');
 
       // 주유소는 이미 가격순 정렬됨, 나머지는 추천순
       const sorted = cat === 'fuel' ? found : sortByRecommendation(found);
       setPlaces(sorted);
       setLoadingProgress(100);
+      setLoadingText(`${sorted.length}개 결과`);
     } catch {
       setPlaces([]);
     } finally {
       setTimeout(() => {
         setIsLoading(false);
         setLoadingProgress(0);
-      }, 300);
+      }, 500);
     }
   };
 
@@ -332,8 +340,17 @@ export default function HomePage() {
         />
       </div>
 
+      {/* 앱 이름 */}
+      {!isRouteView && view !== 'search' && (
+        <div className="relative z-10 pt-[env(safe-area-inset-top)] px-4 pt-3 pb-1">
+          <h1 className="text-lg font-extrabold text-gray-800 tracking-tight">
+            <span className="text-blue-600">길</span>위의<span className="text-blue-600">발견</span>
+          </h1>
+        </div>
+      )}
+
       {/* 상단 검색 영역 */}
-      <div className="relative z-10 pt-[env(safe-area-inset-top)] px-4 pt-3">
+      <div className={`relative z-10 px-4 ${!isRouteView && view !== 'search' ? 'pt-1' : 'pt-[env(safe-area-inset-top)] pt-3'}`}>
         {view === 'search' ? (
           <SearchBar
             placeholder={searchTarget === 'dest' ? '도착지를 검색하세요' : '출발지를 검색하세요'}
@@ -350,6 +367,7 @@ export default function HomePage() {
             destName={destName || '어디로 갈까요?'}
             route={isRouteView ? route : null}
             waypoint={waypoint}
+            defaultCompact={isRouteView}
             onSwap={handleSwap}
             onOriginClick={() => { setSearchTarget('origin'); setView('search'); }}
             onDestClick={() => { setSearchTarget('dest'); setView('search'); }}

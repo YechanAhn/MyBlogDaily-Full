@@ -277,19 +277,23 @@ export function findNearbyPrices(
 
 /**
  * 주유소 이름으로 가격 매칭
+ * OPINET KATEC→WGS84 변환 오차(3~5km)를 감안하여 넓은 반경 검색
  */
 export function matchStationPrice(
   placeName: string,
   placeLat: number,
   placeLng: number
 ): { price: number; prodcd: string; isSelf: boolean } | null {
-  const nearby = findNearbyPrices(placeLat, placeLng, 1);
+  // KATEC 좌표 변환 오차 감안하여 넓은 반경 (8km)
+  const nearby = findNearbyPrices(placeLat, placeLng, 8);
   if (nearby.length === 0) return null;
 
-  // 1차: 이름 매칭
-  const normalized = placeName.replace(/주유소|셀프|self|㈜|\(주\)/gi, '').trim();
+  // 1차: 이름 매칭 (가장 신뢰도 높음)
+  const normalized = placeName.replace(/주유소|셀프|self|㈜|\(주\)|직영|에너지플러스허브/gi, '').trim();
   for (const s of nearby) {
-    const sNorm = s.OS_NM.replace(/주유소|셀프|self|㈜|\(주\)/gi, '').trim();
+    const sNorm = s.OS_NM.replace(/주유소|셀프|self|㈜|\(주\)|직영/gi, '').trim();
+    if (!sNorm || !normalized) continue;
+    // 이름의 핵심 부분이 3글자 이상 겹치면 매칭
     if (normalized.includes(sNorm) || sNorm.includes(normalized) || normalized === sNorm) {
       return {
         price: s.PRICE,
@@ -297,10 +301,24 @@ export function matchStationPrice(
         isSelf: placeName.includes('셀프') || s.OS_NM.includes('셀프'),
       };
     }
+    // 핵심 단어 비교 (3글자 이상 공통 부분)
+    const words1 = normalized.split(/\s+/).filter(w => w.length >= 2);
+    const words2 = sNorm.split(/\s+/).filter(w => w.length >= 2);
+    for (const w1 of words1) {
+      for (const w2 of words2) {
+        if (w1.includes(w2) || w2.includes(w1)) {
+          return {
+            price: s.PRICE,
+            prodcd: s.PRODCD,
+            isSelf: placeName.includes('셀프') || s.OS_NM.includes('셀프'),
+          };
+        }
+      }
+    }
   }
 
-  // 2차: 가장 가까운 주유소 (500m 이내)
-  const closest = findNearbyPrices(placeLat, placeLng, 0.5);
+  // 2차: 가장 가까운 주유소의 가격을 참고치로 제공 (5km 이내)
+  const closest = findNearbyPrices(placeLat, placeLng, 5);
   if (closest.length > 0) {
     return {
       price: closest[0].PRICE,

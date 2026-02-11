@@ -38,6 +38,7 @@ export default function NaviSelector({ start, end, waypoint, onClose }: NaviSele
         <div className="flex gap-3">
           {naviApps.map((navi) => {
             const info = getNaviInfo(navi);
+            const isTmapWithWaypoint = navi === 'tmap' && !!waypoint;
             return (
               <button
                 key={navi}
@@ -47,6 +48,9 @@ export default function NaviSelector({ start, end, waypoint, onClose }: NaviSele
               >
                 <span className="text-2xl">{info.icon}</span>
                 <span className="text-sm font-semibold text-gray-800">{info.name}</span>
+                {isTmapWithWaypoint && (
+                  <span className="text-[10px] text-orange-500 leading-tight text-center">경유지를 목적지로 설정</span>
+                )}
               </button>
             );
           })}

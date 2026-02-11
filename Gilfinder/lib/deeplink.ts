@@ -28,12 +28,10 @@ export function generateDeeplink(
       return url;
     }
     case 'tmap': {
-      // T맵은 경유지를 rVX/rVY로 전달, 최종 도착지는 rGoX/rGoY
-      let url = `tmap://route?rGoName=${encodeURIComponent(end.name || '도착지')}&rGoX=${end.lng}&rGoY=${end.lat}`;
-      if (waypoint) {
-        url += `&rV1Name=${encodeURIComponent(waypoint.name || '경유지')}&rV1X=${waypoint.lng}&rV1Y=${waypoint.lat}`;
-      }
-      return url;
+      // T맵은 딥링크로 경유지를 지원하지 않음 (rV1 파라미터 비공식)
+      // 경유지가 있으면 경유지를 목적지로 설정 (이후 사용자가 최종 목적지 수동 설정)
+      const tmapDest = waypoint || end;
+      return `tmap://route?rGoName=${encodeURIComponent(tmapDest.name || '도착지')}&rGoX=${tmapDest.lng}&rGoY=${tmapDest.lat}`;
     }
   }
 }
