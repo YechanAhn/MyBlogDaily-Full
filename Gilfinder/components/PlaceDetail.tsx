@@ -8,6 +8,8 @@ interface PlaceDetailProps {
   place: Place;
   origin?: LatLng | null;
   destination?: LatLng | null;
+  originName?: string;
+  destName?: string;
   originalDuration?: number; // 원래 경로 소요시간 (초)
   originalDistance?: number; // 원래 경로 거리 (m)
   onClose: () => void;
@@ -24,6 +26,8 @@ export default function PlaceDetail({
   place,
   origin,
   destination,
+  originName,
+  destName,
   originalDuration,
   originalDistance,
   onClose,
@@ -100,20 +104,24 @@ export default function PlaceDetail({
   const handleNavi = (navi: NaviApp) => {
     if (!origin || !destination) return;
     const wp = { lat: place.lat, lng: place.lng, name: place.name };
-    const end = { ...destination, name: '도착지' };
-    openNaviApp(navi, origin, end, wp);
+    const start = { ...origin, name: originName || '출발지' };
+    const end = { ...destination, name: destName || '도착지' };
+    openNaviApp(navi, start, end, wp);
   };
 
   const formatDelta = (seconds: number) => {
-    const min = Math.round(seconds / 60);
+    const min = Math.round(Math.abs(seconds) / 60);
     if (min === 0) return '변동 없음';
-    return `+${min}분`;
+    const sign = seconds < 0 ? '-' : '+';
+    return `${sign}${min}분`;
   };
 
   const formatDistDelta = (meters: number) => {
     if (meters === 0) return '';
-    if (Math.abs(meters) >= 1000) return `+${(meters / 1000).toFixed(1)}km`;
-    return `+${Math.round(meters)}m`;
+    const sign = meters < 0 ? '-' : '+';
+    const abs = Math.abs(meters);
+    if (abs >= 1000) return `${sign}${(abs / 1000).toFixed(1)}km`;
+    return `${sign}${Math.round(abs)}m`;
   };
 
   return (
@@ -161,7 +169,7 @@ export default function PlaceDetail({
             ${place.detourMinutes <= 2 ? 'bg-green-100 text-green-700' :
               place.detourMinutes <= 5 ? 'bg-blue-100 text-blue-700' :
               'bg-orange-100 text-orange-700'}`}>
-            경로 이탈 +{place.detourMinutes}분
+            경로 이탈 {place.detourMinutes > 0 ? `+${place.detourMinutes}` : place.detourMinutes}분
           </span>
           {place.fuelPrice && (
             <span className="text-sm font-bold text-red-500">{place.fuelPrice.toLocaleString()}원/L</span>
@@ -204,15 +212,19 @@ export default function PlaceDetail({
           )}
         </div>
 
-        {/* View on Kakao Map */}
+        {/* 카카오맵 리뷰/사진 링크 - 평점이 없을 때 더 강조 */}
         {place.placeUrl && (
           <a
             href={place.placeUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="block w-full text-center py-2.5 mb-3 bg-gray-50 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+            className={`block w-full text-center py-2.5 mb-3 rounded-xl text-sm font-medium transition-colors ${
+              !place.rating
+                ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100'
+                : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+            }`}
           >
-            카카오맵에서 리뷰·사진 보기 →
+            {!place.rating ? '⭐ 리뷰·평점·사진 보기 →' : '카카오맵에서 리뷰·사진 보기 →'}
           </a>
         )}
 
@@ -220,9 +232,10 @@ export default function PlaceDetail({
         {onAddWaypoint && (
           <button
             onClick={() => onAddWaypoint(place)}
-            className="w-full py-2.5 mb-3 bg-blue-500 text-white rounded-xl text-sm font-bold hover:bg-blue-600 active:scale-[0.98] transition-all"
+            className="w-full py-3 mb-3 bg-blue-500 text-white rounded-xl text-sm font-bold hover:bg-blue-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
           >
-            경유지로 추가
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            이 장소를 경유지로 추가
           </button>
         )}
 
