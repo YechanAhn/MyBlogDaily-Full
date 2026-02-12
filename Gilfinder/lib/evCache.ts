@@ -381,7 +381,167 @@ async function saveToRedis(stations: EvStation[]): Promise<void> {
   console.log(`[EvCache] Redis에 ${zcodes.length}개 지역 저장 완료 (총 ${stations.length}개 충전소)`);
 }
 
-// ===================== 매칭 =====================
+// ===================== 지오 그리드 인덱스 =====================
+
+/** 그리드 인덱스용 간소화 데이터 (Redis 용량 최소화) */
+interface EvStationCompact {
+  i: string;   // statId
+  n: string;   // statNm
+  la: number;  // lat
+  ln: number;  // lng
+  ct: string[];// chargerTypes
+  mo: number;  // maxOutput
+  b: string;   // busiNm
+  cc: number;  // chargerCount
+  ut: string;  // useTime
+  pf: boolean; // parkingFree
+}
+
+/** 매칭 결과 타입 */
+export interface EvMatchResult {
+  chargerTypes: string[];
+  maxOutput: number;
+  operator: string;
+  chargerCount: number;
+  useTime: string;
+  parkingFree: boolean;
+}
+
+const GRID_PREFIX = 'ev:g:';
+const GRID_TTL = 604800; // 7일 (초)
+
+/** 좌표를 그리드 셀 키로 변환 (0.01° ≈ 1.1km × 0.9km) */
+function toGridKey(lat: number, lng: number): string {
+  return `${GRID_PREFIX}${Math.floor(lat * 100)}:${Math.floor(lng * 100)}`;
+}
+
+/** 풀 충전소 데이터를 간소화 */
+function compactStation(s: EvStation): EvStationCompact {
+  return {
+    i: s.statId, n: s.statNm, la: s.lat, ln: s.lng,
+    ct: s.chargerTypes, mo: s.maxOutput, b: s.busiNm,
+    cc: s.chargerCount, ut: s.useTime, pf: s.parkingFree,
+  };
+}
+
+/** 지오 그리드 인덱스 생성 후 Redis 저장 */
+async function saveGeoIndex(stations: EvStation[]): Promise<number> {
+  const grid = new Map<string, EvStationCompact[]>();
+  for (const s of stations) {
+    const key = toGridKey(s.lat, s.lng);
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key)!.push(compactStation(s));
+  }
+
+  // 병렬로 Redis에 저장 (50개씩 배치)
+  const entries = Array.from(grid.entries());
+  for (let i = 0; i < entries.length; i += 50) {
+    const batch = entries.slice(i, i + 50);
+    await Promise.all(batch.map(([key, data]) => cacheSet(key, data, GRID_TTL)));
+  }
+
+  // 그리드 메타 저장
+  await cacheSet('ev:grid:meta', { cellCount: grid.size, updatedAt: Date.now() }, GRID_TTL);
+
+  console.log(`[EvCache] 지오 그리드 인덱스 생성: ${grid.size}개 셀`);
+  return grid.size;
+}
+
+/** compact 데이터를 매칭 결과로 변환 */
+function formatCompactMatch(c: EvStationCompact): EvMatchResult {
+  return {
+    chargerTypes: c.ct,
+    maxOutput: c.mo,
+    operator: c.b,
+    chargerCount: c.cc,
+    useTime: c.ut,
+    parkingFree: c.pf,
+  };
+}
+
+/** 좌표 목록으로 주변 충전소 일괄 조회 (그리드 인덱스 사용) */
+export async function lookupEvByGrid(
+  places: { name: string; lat: number; lng: number; address?: string }[]
+): Promise<(EvMatchResult | null)[]> {
+  if (places.length === 0) return [];
+
+  // 1. 각 장소의 3x3 그리드 셀 키 수집 (주변 셀 포함)
+  const keySet = new Set<string>();
+  for (const p of places) {
+    const baseLat = Math.floor(p.lat * 100);
+    const baseLng = Math.floor(p.lng * 100);
+    for (let dl = -1; dl <= 1; dl++) {
+      for (let dn = -1; dn <= 1; dn++) {
+        keySet.add(`${GRID_PREFIX}${baseLat + dl}:${baseLng + dn}`);
+      }
+    }
+  }
+
+  // 2. 한번의 mget으로 모든 필요한 셀 로드
+  const keys = Array.from(keySet);
+  const cellData = await cacheMGet<EvStationCompact[]>(keys);
+
+  // 셀 데이터를 맵으로 변환
+  const cellMap = new Map<string, EvStationCompact[]>();
+  keys.forEach((k, i) => {
+    if (cellData[i] && Array.isArray(cellData[i])) {
+      cellMap.set(k, cellData[i]!);
+    }
+  });
+
+  // 3. 각 장소별 매칭
+  return places.map(p => {
+    const baseLat = Math.floor(p.lat * 100);
+    const baseLng = Math.floor(p.lng * 100);
+
+    // 3x3 셀에서 후보 수집
+    const candidates: EvStationCompact[] = [];
+    for (let dl = -1; dl <= 1; dl++) {
+      for (let dn = -1; dn <= 1; dn++) {
+        const cell = cellMap.get(`${GRID_PREFIX}${baseLat + dl}:${baseLng + dn}`);
+        if (cell) candidates.push(...cell);
+      }
+    }
+
+    if (candidates.length === 0) return null;
+
+    // 거리 계산 + 정렬 (1km 이내만)
+    const withDist = candidates.map(c => ({
+      ...c,
+      distKm: Math.sqrt((c.la - p.lat) ** 2 + (c.ln - p.lng) ** 2) * 111
+    })).filter(c => c.distKm <= 1.0).sort((a, b) => a.distKm - b.distKm);
+
+    if (withDist.length === 0) return null;
+
+    // 300m 이내 → 즉시 매칭 (거의 확실히 같은 장소)
+    if (withDist[0].distKm <= 0.3) return formatCompactMatch(withDist[0]);
+
+    // 이름 매칭 시도
+    const normalize = (name: string) =>
+      name.replace(/충전소|충전기|전기차|EV|ev|\(.*?\)|주차장|공용/gi, '')
+        .replace(/[()·\-_#]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    const pNorm = normalize(p.name);
+
+    for (const c of withDist) {
+      const cNorm = normalize(c.n);
+      if (cNorm.includes(pNorm) || pNorm.includes(cNorm)) return formatCompactMatch(c);
+      const tokensA = pNorm.split(/\s+/).filter(w => w.length >= 2);
+      const tokensB = cNorm.split(/\s+/).filter(w => w.length >= 2);
+      for (const a of tokensA) {
+        for (const b of tokensB) {
+          if (a === b || a.includes(b) || b.includes(a)) return formatCompactMatch(c);
+        }
+      }
+    }
+
+    // 500m 이내 폴백 (이름 매칭 실패해도 가까우면 매칭)
+    if (withDist[0].distKm <= 0.5) return formatCompactMatch(withDist[0]);
+
+    return null;
+  });
+}
+
+// ===================== 매칭 (레거시) =====================
 
 /** 캐시에서 좌표 근처 충전소 검색 */
 async function getNearbyStations(
@@ -584,6 +744,14 @@ export async function refreshEvCache(
     await saveToRedis(stations);
   } catch (e) {
     console.error('[EvCache] Redis 저장 실패:', e);
+  }
+
+  // 지오 그리드 인덱스 생성
+  try {
+    const cellCount = await saveGeoIndex(stations);
+    console.log(`[EvCache] 그리드 인덱스: ${cellCount}개 셀`);
+  } catch (e) {
+    console.error('[EvCache] 그리드 인덱스 생성 실패:', e);
   }
 
   return {

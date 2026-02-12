@@ -175,11 +175,20 @@ export default function HomePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routePriority]);
 
-  // 경로 설정 시 대기 중인 카테고리 자동 검색
+  // 경로 변경 시 카테고리 자동 재검색 (대기 중 또는 기존 검색)
   useEffect(() => {
-    if (route?.polyline && pendingCategory && pendingCategory !== 'custom') {
+    if (!route?.polyline) return;
+    if (pendingCategory && pendingCategory !== 'custom') {
+      // 경로 미설정 상태에서 선택한 카테고리 → 경로 완료 후 자동 검색
       searchPlaces(route.polyline, pendingCategory, route.totalDuration);
       setPendingCategory(null);
+    } else if (hasSearched) {
+      // 도착지 변경 시 현재 카테고리로 자동 재검색
+      if (category === 'custom' && customKeyword) {
+        searchPlaces(route.polyline, 'custom', route.totalDuration);
+      } else if (category !== 'custom') {
+        searchPlaces(route.polyline, category, route.totalDuration);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route]);
