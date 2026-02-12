@@ -14,17 +14,27 @@ const pages: OnboardingPage[] = [
   {
     icon: '🚗',
     title: '가는길에 시작하기',
-    description: '출발지/도착지를 입력하면 경로를 검색해요',
+    description: '출발지와 도착지를 입력하면\n최적 경로를 찾아드려요',
+  },
+  {
+    icon: '⚡',
+    title: '다양한 카테고리',
+    description: '전기차 충전소, 드라이브스루, 주유소,\n휴게소, 맛집, 카페 등 원하는 장소를\n경로 주변에서 찾아보세요',
   },
   {
     icon: '🔍',
-    title: '카테고리로 검색',
-    description: '주유소, 맛집, 카페 등 카테고리를 선택하면 경로 주변 장소를 찾아줘요',
+    title: '자유 검색',
+    description: '약국, 병원, 마트, 편의점 등\n원하는 키워드로 뭐든 검색할 수 있어요\n검색 카테고리를 선택해보세요!',
   },
   {
     icon: '📍',
     title: '경유지 추가',
-    description: '마음에 드는 장소를 경유지로 추가하고 내비로 바로 출발!',
+    description: '마음에 드는 장소를 경유지로 추가하면\n추가 소요시간을 바로 확인할 수 있어요',
+  },
+  {
+    icon: '🧭',
+    title: '내비 바로 연결',
+    description: '카카오내비, 네이버지도, T맵 중\n원하는 내비로 바로 출발하세요!',
   },
 ];
 
@@ -67,12 +77,15 @@ export default function OnboardingPopup() {
 
   const handleTouchEnd = () => {
     if (!isDragging) return;
-    const diff = startX - currentX;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0 && currentPage < pages.length - 1) {
-        setCurrentPage(currentPage + 1);
-      } else if (diff < 0 && currentPage > 0) {
-        setCurrentPage(currentPage - 1);
+    // 실제로 드래그하지 않았으면 스와이프 무시 (탭 클릭과 충돌 방지)
+    if (currentX !== 0) {
+      const diff = startX - currentX;
+      if (Math.abs(diff) > 50) {
+        if (diff > 0 && currentPage < pages.length - 1) {
+          setCurrentPage(currentPage + 1);
+        } else if (diff < 0 && currentPage > 0) {
+          setCurrentPage(currentPage - 1);
+        }
       }
     }
     setIsDragging(false);
@@ -92,12 +105,15 @@ export default function OnboardingPopup() {
 
   const handleMouseUp = () => {
     if (!isDragging) return;
-    const diff = startX - currentX;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0 && currentPage < pages.length - 1) {
-        setCurrentPage(currentPage + 1);
-      } else if (diff < 0 && currentPage > 0) {
-        setCurrentPage(currentPage - 1);
+    // 실제로 드래그하지 않았으면 스와이프 무시 (클릭과 충돌 방지)
+    if (currentX !== 0) {
+      const diff = startX - currentX;
+      if (Math.abs(diff) > 50) {
+        if (diff > 0 && currentPage < pages.length - 1) {
+          setCurrentPage(currentPage + 1);
+        } else if (diff < 0 && currentPage > 0) {
+          setCurrentPage(currentPage - 1);
+        }
       }
     }
     setIsDragging(false);
@@ -138,7 +154,7 @@ export default function OnboardingPopup() {
         <div className="text-center pt-4 pb-6">
           <div className="text-6xl mb-4">{pages[currentPage].icon}</div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">{pages[currentPage].title}</h2>
-          <p className="text-sm text-gray-600 leading-relaxed">{pages[currentPage].description}</p>
+          <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{pages[currentPage].description}</p>
         </div>
 
         {/* Dot indicators */}

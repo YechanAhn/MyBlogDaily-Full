@@ -9,11 +9,12 @@ const CATEGORY_MAP: Record<SearchCategory, { keyword: string; code?: string }> =
   rest: { keyword: '고속도로휴게소' },
   ev: { keyword: '전기차충전소' },
   dt: { keyword: '드라이브스루' },
+  toilet: { keyword: '화장실' },
   custom: { keyword: '' },
 };
 
 // 경유시간만으로 정렬하는 카테고리 (평점 무관)
-const TIME_ONLY_CATEGORIES = new Set<SearchCategory>(['rest', 'ev', 'fuel']);
+const TIME_ONLY_CATEGORIES = new Set<SearchCategory>(['rest', 'ev', 'fuel', 'toilet']);
 
 // 평점+경유시간 복합 점수 (지수 감쇠: score = rating × e^(-detour/12))
 function computeRankScore(place: Place, category: SearchCategory): number {
