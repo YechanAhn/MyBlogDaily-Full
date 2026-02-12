@@ -46,10 +46,10 @@ export async function POST(request: NextRequest) {
       ...result,
       updatedAt: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('[EvCache] 갱신 실패:', error);
     return NextResponse.json(
-      { error: '캐시 갱신 중 오류가 발생했습니다.', detail: error?.message || String(error), keyLength: apiKey?.length },
+      { error: '캐시 갱신 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
