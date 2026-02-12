@@ -37,12 +37,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const safeFuelType = ['B027', 'D047', 'K015'].includes(fuelType) ? fuelType : 'B027';
+    const radiusNum = Math.min(Math.max(parseInt(radius, 10) || 2000, 300), 20000);
+
     // 1. Kakao 검색으로 주유소 목록 가져오기
     const kakaoParams = new URLSearchParams({
       query: '주유소',
       x,
       y,
-      radius,
+      radius: String(radiusNum),
       sort: 'distance',
       category_group_code: 'OL7',
       size: '15',
@@ -71,7 +74,7 @@ export async function GET(request: NextRequest) {
       if (opinetKey) {
         try {
           console.log('[FuelAPI] 캐시 없음 - 자동 갱신 시작');
-          await refreshFuelCache(opinetKey, fuelType);
+          await refreshFuelCache(opinetKey, safeFuelType);
           cache = getCache();
         } catch (e) {
           console.error('[FuelAPI] 자동 갱신 실패:', e);
@@ -82,7 +85,7 @@ export async function GET(request: NextRequest) {
     // 3. 캐시 데이터가 있으면 가격 정보 병합
     const lat = parseFloat(y);
     const lng = parseFloat(x);
-    const nearbyPrices = cache ? findNearbyPrices(lat, lng, 5) : [];
+    const nearbyPrices = cache ? findNearbyPrices(lat, lng, 8) : [];
 
     return NextResponse.json({
       ...kakaoData,

@@ -10,10 +10,10 @@ interface PlaceCardProps {
 }
 
 // 장소 상세 정보 캐시
-const detailCache = new Map<string, { imageUrl?: string; rating?: number; reviewCount?: number }>();
+const detailCache = new Map<string, { imageUrl?: string; rating?: number; reviewCount?: number; openHours?: string }>();
 
 export default function PlaceCard({ place, isSelected, onClick }: PlaceCardProps) {
-  const [detail, setDetail] = useState<{ imageUrl?: string; rating?: number; reviewCount?: number } | null>(
+  const [detail, setDetail] = useState<{ imageUrl?: string; rating?: number; reviewCount?: number; openHours?: string } | null>(
     detailCache.get(place.id) || null
   );
   const [imgError, setImgError] = useState(false);
@@ -43,13 +43,19 @@ export default function PlaceCard({ place, isSelected, onClick }: PlaceCardProps
 
   const fetchDetail = async () => {
     try {
-      const res = await fetch(`/api/place-detail?id=${place.id}`);
+      // Google 평점 폴백을 위해 name, lat, lng 전달
+      const params = new URLSearchParams({ id: place.id });
+      if (place.name) params.set('name', place.name);
+      if (place.lat) params.set('lat', String(place.lat));
+      if (place.lng) params.set('lng', String(place.lng));
+      const res = await fetch(`/api/place-detail?${params.toString()}`);
       if (!res.ok) return;
       const data = await res.json();
       const info = {
         imageUrl: data.imageUrl || undefined,
-        rating: data.rating || undefined,
-        reviewCount: data.reviewCount || undefined,
+        rating: data.rating ?? undefined,
+        reviewCount: data.reviewCount ?? undefined,
+        openHours: data.openHours || undefined,
       };
       detailCache.set(place.id, info);
       setDetail(info);
@@ -58,20 +64,29 @@ export default function PlaceCard({ place, isSelected, onClick }: PlaceCardProps
     }
   };
 
-  const displayRating = detail?.rating || place.rating;
-  const displayReviews = detail?.reviewCount || place.reviewCount;
+  const displayRating = detail?.rating ?? place.rating;
+  const displayReviews = detail?.reviewCount ?? place.reviewCount;
   const imageUrl = detail?.imageUrl || place.imageUrl;
+  const displayOpenHours = detail?.openHours || place.openHours;
 
   return (
     <div
       ref={cardRef}
+      data-place-id={place.id}
       onClick={onClick}
-      className={`flex-shrink-0 w-[260px] snap-center rounded-2xl overflow-hidden cursor-pointer transition-all duration-200
+      className={`relative flex-shrink-0 w-[260px] snap-center rounded-2xl overflow-hidden cursor-pointer transition-all duration-300
         ${isSelected
-          ? 'bg-blue-50 ring-2 ring-blue-500 shadow-xl scale-[1.05] -translate-y-1'
+          ? 'bg-blue-50 ring-2 ring-blue-400 shadow-xl scale-[1.03] -translate-y-1 animate-pulse-subtle'
           : 'bg-white shadow-lg hover:shadow-xl'
         }`}
     >
+      {/* 경유지 추가 뱃지 */}
+      {isSelected && (
+        <div className="absolute top-2 right-2 z-10 bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md">
+          경유지 추가
+        </div>
+      )}
+
       {/* 이미지 영역 */}
       {imageUrl && !imgError ? (
         <div className="w-full h-[100px] bg-gray-100 overflow-hidden">
@@ -111,12 +126,12 @@ export default function PlaceCard({ place, isSelected, onClick }: PlaceCardProps
         )}
 
         <div className="flex items-center gap-1.5 flex-wrap mb-2">
-          {displayRating ? (
+          {displayRating !== undefined && displayRating !== null ? (
             <span className="text-[12px] font-semibold text-amber-500">★ {displayRating.toFixed(1)}</span>
           ) : (
             <span className="text-[11px] text-amber-500">⭐ 리뷰 보기</span>
           )}
-          {displayReviews && displayReviews > 0 && (
+          {displayReviews !== undefined && displayReviews !== null && displayReviews > 0 && (
             <span className="text-[11px] text-gray-400">리뷰 {displayReviews >= 1000 ? `${(displayReviews / 1000).toFixed(1)}k` : displayReviews}</span>
           )}
           {place.detourDistance && place.detourDistance > 0 && (
@@ -125,6 +140,13 @@ export default function PlaceCard({ place, isSelected, onClick }: PlaceCardProps
         </div>
 
         <p className="text-[11px] text-gray-500 line-clamp-1">{place.roadAddress || place.address}</p>
+
+        {/* 영업시간 정보 */}
+        {displayOpenHours && (
+          <div className="flex items-center gap-1 mt-1.5">
+            <span className="text-[11px] text-gray-600">⏰ {displayOpenHours}</span>
+          </div>
+        )}
       </div>
     </div>
   );

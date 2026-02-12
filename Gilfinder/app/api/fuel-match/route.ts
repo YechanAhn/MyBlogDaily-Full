@@ -41,9 +41,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 각 주유소별 가격 매칭
-    const prices = stations.map((s: { name: string; lat: number; lng: number }) => {
-      if (!s.name || !s.lat || !s.lng) return null;
-      return matchStationPrice(s.name, s.lat, s.lng);
+    const prices = stations.map((s: { name: string; lat: number; lng: number; address?: string; roadAddress?: string }) => {
+      if (!s?.name || String(s.name).length > 60) return null;
+      if (typeof s.lat !== 'number' || typeof s.lng !== 'number') return null;
+      if (s.lng < 124 || s.lng > 132 || s.lat < 33 || s.lat > 39) return null;
+      return matchStationPrice(String(s.name), s.lat, s.lng, s.address, s.roadAddress);
     });
 
     return NextResponse.json({

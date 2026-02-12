@@ -242,7 +242,7 @@ export default function KakaoMap({
         <div style="font-weight: 700; color: #111; margin-bottom: 2px;">${selectedPlace.name}</div>
         <div style="font-size: 11px; color: #999;">${selectedPlace.category}</div>
         <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-          ${selectedPlace.rating ? `<span style="color: #F59E0B; font-weight: 600; font-size: 12px;">★ ${selectedPlace.rating.toFixed(1)}</span>` : ''}
+          ${selectedPlace.rating !== undefined && selectedPlace.rating !== null ? `<span style="color: #F59E0B; font-weight: 600; font-size: 12px;">★ ${selectedPlace.rating.toFixed(1)}</span>` : ''}
           <span style="color: #3B82F6; font-weight: 600; font-size: 12px;">+${selectedPlace.detourMinutes}분</span>
           ${selectedPlace.fuelPrice ? `<span style="color: #EF4444; font-weight: 700; font-size: 13px;">${selectedPlace.fuelPrice.toLocaleString()}원/L</span>` : ''}
         </div>

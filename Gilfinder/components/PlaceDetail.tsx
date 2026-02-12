@@ -157,12 +157,12 @@ export default function PlaceDetail({
 
         {/* Stats */}
         <div className="flex items-center gap-3 mb-4">
-          {place.rating && (
+          {place.rating !== undefined && place.rating !== null && (
             <div className="flex items-center gap-1">
               <span className="text-amber-500 font-bold text-sm">★ {place.rating.toFixed(1)}</span>
             </div>
           )}
-          {place.reviewCount && place.reviewCount > 0 && (
+          {place.reviewCount !== undefined && place.reviewCount !== null && place.reviewCount > 0 && (
             <span className="text-xs text-gray-400">리뷰 {place.reviewCount}개</span>
           )}
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full
@@ -219,12 +219,12 @@ export default function PlaceDetail({
             target="_blank"
             rel="noopener noreferrer"
             className={`block w-full text-center py-2.5 mb-3 rounded-xl text-sm font-medium transition-colors ${
-              !place.rating
+              place.rating === undefined || place.rating === null
                 ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100'
                 : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
             }`}
           >
-            {!place.rating ? '⭐ 리뷰·평점·사진 보기 →' : '카카오맵에서 리뷰·사진 보기 →'}
+            {place.rating === undefined || place.rating === null ? '⭐ 리뷰·평점·사진 보기 →' : '카카오맵에서 리뷰·사진 보기 →'}
           </a>
         )}
 

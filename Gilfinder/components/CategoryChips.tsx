@@ -9,13 +9,14 @@ interface CategoryChipsProps {
   customLabel?: string; // 검색 시 검색어를 라벨로 표시
 }
 
-const CATEGORIES: { key: SearchCategory; label: string; emoji: string }[] = [
+const CATEGORIES: { key: SearchCategory; label: string; emoji?: string; icon?: string }[] = [
   { key: 'custom', label: '검색', emoji: '🔍' },
-  { key: 'coffee', label: '카페', emoji: '☕' },
+  { key: 'dessert', label: '두쫀쿠', icon: '/icons/dubaicookie-48.png' },
   { key: 'fuel', label: '주유소', emoji: '⛽' },
-  { key: 'food', label: '맛집', emoji: '🍽️' },
-  { key: 'convenience', label: '편의점', emoji: '🏪' },
   { key: 'rest', label: '휴게소', emoji: '🅿️' },
+  { key: 'food', label: '맛집', emoji: '🍽️' },
+  { key: 'coffee', label: '카페', emoji: '☕' },
+  { key: 'convenience', label: '편의점', emoji: '🏪' },
 ];
 
 export default function CategoryChips({ value, onChange, visible = true, customLabel }: CategoryChipsProps) {
@@ -36,7 +37,11 @@ export default function CategoryChips({ value, onChange, visible = true, customL
                 : 'bg-white/95 text-gray-600 shadow-sm hover:bg-white'
               }`}
           >
-            <span className="text-xs">{cat.emoji}</span>
+            {cat.icon ? (
+              <img src={cat.icon} alt={cat.label} className="w-4 h-4 object-contain" />
+            ) : (
+              <span className="text-xs">{cat.emoji}</span>
+            )}
             <span>{label}</span>
           </button>
         );

@@ -114,6 +114,8 @@ export interface FuelStation {
   lng: number;         // 경도 (WGS84 변환값)
   lat: number;         // 위도
   DISTANCE: number;    // 조회 지점으로부터 거리
+  NEW_ADR: string;     // 도로명주소
+  VAN_ADR: string;     // 지번주소
 }
 
 interface FuelCache {
@@ -128,8 +130,8 @@ let memoryCache: FuelCache | null = null;
 const CACHE_FILE = '/tmp/ontheway-fuel-cache.json';
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24시간
 
-// 전국 주요 고속도로/도시 그리드 포인트 (~80개)
-// 경부, 서해안, 중부, 영동, 호남, 남해 고속도로 + 주요 도시
+// 전국 주요 고속도로/도시 그리드 포인트 (~150개)
+// 경부, 서해안, 중부, 영동, 호남, 남해 고속도로 + 주요 도시 + 내륙 커버리지 강화
 const GRID_POINTS: { lat: number; lng: number; name: string }[] = [
   // 수도권
   { lat: 37.566, lng: 126.978, name: '서울' },
@@ -228,6 +230,116 @@ const GRID_POINTS: { lat: number; lng: number; name: string }[] = [
   { lat: 35.230, lng: 128.600, name: '밀양' },
   { lat: 36.440, lng: 126.620, name: '서천' },
   { lat: 35.400, lng: 126.950, name: '담양' },
+
+  // ===== 경기도 추가 커버리지 (가장 인구 많은 지역) =====
+  { lat: 37.290, lng: 126.980, name: '안양' },
+  { lat: 37.478, lng: 126.877, name: '부천' },
+  { lat: 37.650, lng: 127.150, name: '남양주' },
+  { lat: 37.206, lng: 127.077, name: '오산' },
+  { lat: 37.340, lng: 127.125, name: '분당' },
+  { lat: 37.450, lng: 127.127, name: '구리' },
+  { lat: 37.640, lng: 127.025, name: '노원' },
+  { lat: 37.860, lng: 127.200, name: '가평' },
+  { lat: 37.740, lng: 127.047, name: '포천' },
+  { lat: 37.758, lng: 126.780, name: '파주' },
+  { lat: 37.630, lng: 126.830, name: '고양' },
+  { lat: 37.290, lng: 126.850, name: '광명' },
+  { lat: 37.486, lng: 126.656, name: '김포' },
+  { lat: 37.275, lng: 127.009, name: '군포' },
+  { lat: 37.155, lng: 127.090, name: '화성' },
+  { lat: 37.000, lng: 127.270, name: '안성' },
+  { lat: 37.140, lng: 127.260, name: '용인남' },
+  { lat: 37.370, lng: 127.220, name: '광주' },
+  { lat: 37.440, lng: 127.294, name: '하남동' },
+  { lat: 37.200, lng: 126.850, name: '시흥' },
+
+  // ===== 충남 내륙 강화 =====
+  { lat: 36.460, lng: 126.660, name: '당진' },
+  { lat: 36.270, lng: 126.990, name: '예산' },
+  { lat: 36.240, lng: 126.800, name: '청양' },
+  { lat: 36.275, lng: 127.120, name: '공주' },
+  { lat: 36.158, lng: 127.250, name: '부여' },
+  { lat: 36.547, lng: 126.660, name: '예천' },
+  { lat: 36.600, lng: 127.000, name: '홍성동' },
+  { lat: 36.105, lng: 126.613, name: '서천남' },
+
+  // ===== 충북 내륙 강화 =====
+  { lat: 36.970, lng: 127.490, name: '증평' },
+  { lat: 36.790, lng: 127.440, name: '진천' },
+  { lat: 36.580, lng: 127.290, name: '청주서' },
+  { lat: 36.640, lng: 127.650, name: '청주동' },
+  { lat: 36.470, lng: 127.670, name: '보은' },
+  { lat: 36.220, lng: 127.520, name: '영동' },
+  { lat: 36.370, lng: 128.410, name: '단양' },
+  { lat: 36.620, lng: 128.200, name: '충주북' },
+  { lat: 36.990, lng: 128.190, name: '제천동' },
+  { lat: 36.800, lng: 128.050, name: '괴산' },
+
+  // ===== 전북 내륙 강화 =====
+  { lat: 35.720, lng: 127.100, name: '완주' },
+  { lat: 35.650, lng: 127.250, name: '진안' },
+  { lat: 35.450, lng: 127.380, name: '장수' },
+  { lat: 35.950, lng: 127.150, name: '익산동' },
+  { lat: 35.820, lng: 127.400, name: '전주동' },
+  { lat: 35.570, lng: 126.856, name: '고창' },
+  { lat: 35.420, lng: 126.700, name: '영광' },
+  { lat: 35.680, lng: 126.780, name: '정읍서' },
+
+  // ===== 전남 내륙 강화 =====
+  { lat: 35.250, lng: 126.910, name: '장성' },
+  { lat: 35.030, lng: 126.710, name: '영암' },
+  { lat: 35.060, lng: 126.980, name: '나주' },
+  { lat: 35.000, lng: 127.090, name: '화순' },
+  { lat: 34.940, lng: 127.270, name: '보성' },
+  { lat: 34.760, lng: 127.150, name: '고흥' },
+  { lat: 34.610, lng: 127.280, name: '여수북' },
+  { lat: 34.830, lng: 126.910, name: '무안' },
+  { lat: 35.070, lng: 126.710, name: '함평북' },
+  { lat: 34.610, lng: 126.750, name: '강진' },
+  { lat: 34.500, lng: 126.770, name: '완도' },
+  { lat: 34.730, lng: 126.480, name: '신안' },
+
+  // ===== 경북 내륙 강화 =====
+  { lat: 36.740, lng: 128.890, name: '안동동' },
+  { lat: 36.470, lng: 128.890, name: '예천동' },
+  { lat: 36.570, lng: 129.110, name: '영덕' },
+  { lat: 36.420, lng: 129.360, name: '포항남' },
+  { lat: 36.770, lng: 128.620, name: '봉화' },
+  { lat: 36.570, lng: 129.340, name: '영양' },
+  { lat: 36.660, lng: 128.450, name: '영주동' },
+  { lat: 36.350, lng: 128.480, name: '예천서' },
+  { lat: 36.010, lng: 128.690, name: '칠곡' },
+  { lat: 36.230, lng: 128.340, name: '의성' },
+  { lat: 36.420, lng: 128.750, name: '청송' },
+  { lat: 36.130, lng: 129.060, name: '경주서' },
+
+  // ===== 경남 내륙 강화 =====
+  { lat: 35.230, lng: 128.300, name: '창녕동' },
+  { lat: 35.680, lng: 128.320, name: '성주' },
+  { lat: 35.680, lng: 128.110, name: '고령' },
+  { lat: 35.510, lng: 128.210, name: '합천' },
+  { lat: 35.250, lng: 127.910, name: '산청' },
+  { lat: 35.420, lng: 127.740, name: '함양' },
+  { lat: 35.650, lng: 127.910, name: '거창' },
+  { lat: 35.470, lng: 128.750, name: '양산동' },
+  { lat: 35.330, lng: 128.430, name: '창녕서' },
+  { lat: 35.180, lng: 128.400, name: '창원북' },
+  { lat: 35.050, lng: 128.270, name: '함안' },
+  { lat: 35.170, lng: 127.730, name: '하동동' },
+  { lat: 34.850, lng: 127.950, name: '남해' },
+
+  // ===== 강원도 남부 강화 =====
+  { lat: 37.380, lng: 128.680, name: '평창동' },
+  { lat: 37.270, lng: 128.460, name: '영월' },
+  { lat: 37.380, lng: 128.660, name: '정선' },
+  { lat: 37.164, lng: 128.989, name: '태백' },
+  { lat: 37.270, lng: 129.180, name: '삼척북' },
+  { lat: 37.550, lng: 128.870, name: '강릉남' },
+  { lat: 37.686, lng: 128.720, name: '홍천' },
+  { lat: 37.490, lng: 127.730, name: '횡성서' },
+  { lat: 38.070, lng: 128.460, name: '양양' },
+  { lat: 38.208, lng: 128.350, name: '인제' },
+  { lat: 37.900, lng: 127.530, name: '춘천남' },
 ];
 
 /**
@@ -258,21 +370,35 @@ export function getCache(): FuelCache | null {
 /**
  * 캐시에서 좌표 근처 주유소 가격 검색
  */
+function getNearbyStationsWithDistance(
+  lat: number,
+  lng: number,
+  radiusKm: number
+): { station: FuelStation; distanceKm: number }[] {
+  const cache = getCache();
+  if (!cache) return [];
+
+  const results: { station: FuelStation; distanceKm: number }[] = [];
+  for (const s of cache.stations) {
+    const dlat = s.lat - lat;
+    const dlng = s.lng - lng;
+    // 간단 거리 계산 (정확도보다 속도 우선)
+    const approxKm = Math.sqrt(dlat * dlat + dlng * dlng) * 111;
+    if (approxKm <= radiusKm) {
+      results.push({ station: s, distanceKm: approxKm });
+    }
+  }
+
+  results.sort((a, b) => a.distanceKm - b.distanceKm);
+  return results;
+}
+
 export function findNearbyPrices(
   lat: number,
   lng: number,
   radiusKm: number = 3
 ): FuelStation[] {
-  const cache = getCache();
-  if (!cache) return [];
-
-  return cache.stations.filter(s => {
-    const dlat = s.lat - lat;
-    const dlng = s.lng - lng;
-    // 간단 거리 계산 (정확도보다 속도 우선)
-    const approxKm = Math.sqrt(dlat * dlat + dlng * dlng) * 111;
-    return approxKm <= radiusKm;
-  });
+  return getNearbyStationsWithDistance(lat, lng, radiusKm).map(r => r.station);
 }
 
 /**
@@ -282,48 +408,109 @@ export function findNearbyPrices(
 export function matchStationPrice(
   placeName: string,
   placeLat: number,
-  placeLng: number
+  placeLng: number,
+  placeAddress?: string,
+  placeRoadAddress?: string
 ): { price: number; prodcd: string; isSelf: boolean } | null {
-  // KATEC 좌표 변환 오차 감안하여 넓은 반경 (8km)
-  const nearby = findNearbyPrices(placeLat, placeLng, 8);
+  const isSelf = placeName.includes('셀프');
+  const normalize = (name: string) =>
+    name
+      .replace(/주유소|셀프|self|㈜|\(주\)|직영|에너지플러스허브|에너지플러스|오일뱅크|S-?OIL|SK|GS|현대오일뱅크|알뜰/gi, '')
+      .replace(/[()·\-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+  const normalized = normalize(placeName);
+
+  // KATEC 좌표 변환 오차 감안하여 넓은 반경 (12km)
+  const nearby = getNearbyStationsWithDistance(placeLat, placeLng, 12);
   if (nearby.length === 0) return null;
 
-  // 1차: 이름 매칭 (가장 신뢰도 높음)
-  const normalized = placeName.replace(/주유소|셀프|self|㈜|\(주\)|직영|에너지플러스허브/gi, '').trim();
-  for (const s of nearby) {
-    const sNorm = s.OS_NM.replace(/주유소|셀프|self|㈜|\(주\)|직영/gi, '').trim();
-    if (!sNorm || !normalized) continue;
-    // 이름의 핵심 부분이 3글자 이상 겹치면 매칭
-    if (normalized.includes(sNorm) || sNorm.includes(normalized) || normalized === sNorm) {
-      return {
-        price: s.PRICE,
-        prodcd: s.PRODCD,
-        isSelf: placeName.includes('셀프') || s.OS_NM.includes('셀프'),
-      };
-    }
-    // 핵심 단어 비교 (3글자 이상 공통 부분)
-    const words1 = normalized.split(/\s+/).filter(w => w.length >= 2);
-    const words2 = sNorm.split(/\s+/).filter(w => w.length >= 2);
-    for (const w1 of words1) {
-      for (const w2 of words2) {
-        if (w1.includes(w2) || w2.includes(w1)) {
+  // 1차: 주소 매칭 (가장 정확)
+  if (placeAddress || placeRoadAddress) {
+    const normalizeAddr = (addr: string) =>
+      addr.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    for (const { station, distanceKm } of nearby) {
+      if (distanceKm > 5) continue; // 주소 매칭은 5km 이내만
+
+      const vanAddr = normalizeAddr(station.VAN_ADR);
+      const newAddr = normalizeAddr(station.NEW_ADR);
+
+      if (!vanAddr && !newAddr) continue;
+
+      // 도로명주소 매칭 (가장 정확)
+      if (placeRoadAddress && newAddr) {
+        const normPlaceRoad = normalizeAddr(placeRoadAddress);
+        if (normPlaceRoad === newAddr || normPlaceRoad.includes(newAddr) || newAddr.includes(normPlaceRoad)) {
           return {
-            price: s.PRICE,
-            prodcd: s.PRODCD,
-            isSelf: placeName.includes('셀프') || s.OS_NM.includes('셀프'),
+            price: station.PRICE,
+            prodcd: station.PRODCD,
+            isSelf: isSelf || station.OS_NM.includes('셀프'),
+          };
+        }
+      }
+
+      // 지번주소 매칭
+      if (placeAddress && vanAddr) {
+        const normPlaceAddr = normalizeAddr(placeAddress);
+        if (normPlaceAddr === vanAddr || normPlaceAddr.includes(vanAddr) || vanAddr.includes(normPlaceAddr)) {
+          return {
+            price: station.PRICE,
+            prodcd: station.PRODCD,
+            isSelf: isSelf || station.OS_NM.includes('셀프'),
           };
         }
       }
     }
   }
 
-  // 2차: 가장 가까운 주유소의 가격을 참고치로 제공 (5km 이내)
-  const closest = findNearbyPrices(placeLat, placeLng, 5);
-  if (closest.length > 0) {
+  const tokens = (name: string) => name.split(/\s+/).filter(w => w.length >= 2);
+
+  const scoreNameMatch = (a: string, b: string) => {
+    if (!a || !b) return 0;
+    if (a === b) return 3;
+    if (a.includes(b) || b.includes(a)) return 2.2;
+    const wordsA = tokens(a);
+    const wordsB = tokens(b);
+    let hits = 0;
+    for (const w1 of wordsA) {
+      for (const w2 of wordsB) {
+        if (w1 === w2 || w1.includes(w2) || w2.includes(w1)) hits++;
+      }
+    }
+    return hits > 0 ? 1 + Math.min(1.2, hits * 0.4) : 0;
+  };
+
+  let best: { station: FuelStation; score: number } | null = null;
+
+  for (const { station, distanceKm } of nearby) {
+    const sNorm = normalize(station.OS_NM);
+    const nameScore = scoreNameMatch(normalized, sNorm);
+    if (nameScore <= 0) continue;
+    const distScore = Math.max(0, 1 - distanceKm / 12);
+    const score = nameScore * 2 + distScore;
+    if (!best || score > best.score) {
+      best = { station, score };
+    }
+  }
+
+  if (best) {
     return {
-      price: closest[0].PRICE,
-      prodcd: closest[0].PRODCD,
-      isSelf: placeName.includes('셀프') || closest[0].OS_NM.includes('셀프'),
+      price: best.station.PRICE,
+      prodcd: best.station.PRODCD,
+      isSelf: isSelf || best.station.OS_NM.includes('셀프'),
+    };
+  }
+
+  // 2차: 가장 가까운 주유소의 가격을 참고치로 제공 (12km 이내, KATEC 변환 오차 감안)
+  const closest = nearby[0];
+  if (closest) {
+    return {
+      price: closest.station.PRICE,
+      prodcd: closest.station.PRODCD,
+      isSelf: isSelf || closest.station.OS_NM.includes('셀프'),
     };
   }
 
@@ -349,7 +536,7 @@ export async function refreshFuelCache(
       try {
         // WGS84 → KATEC 좌표 변환 (OPINET은 KATEC 좌표계 사용)
         const katec = wgs84ToKatec(point.lng, point.lat);
-        const url = `https://www.opinet.co.kr/api/aroundAll.do?code=${apiKey}&x=${Math.round(katec.x)}&y=${Math.round(katec.y)}&radius=5000&prodcd=${fuelType}&sort=2&out=json`;
+        const url = `https://www.opinet.co.kr/api/aroundAll.do?code=${apiKey}&x=${Math.round(katec.x)}&y=${Math.round(katec.y)}&radius=7000&prodcd=${fuelType}&sort=2&out=json`;
         apiCalls++;
 
         const res = await fetch(url);
@@ -376,6 +563,8 @@ export async function refreshFuelCache(
             lng: wgs.lng,
             lat: wgs.lat,
             DISTANCE: parseFloat(oil.DISTANCE) || 0,
+            NEW_ADR: oil.NEW_ADR || '',
+            VAN_ADR: oil.VAN_ADR || '',
           };
         });
       } catch {

@@ -8,11 +8,14 @@ import PlaceCard from '@/components/PlaceCard';
 import PlaceDetail from '@/components/PlaceDetail';
 import RoutePanel from '@/components/RoutePanel';
 import MealSearch from '@/components/MealSearch';
-import { LatLng, Place, RouteResult, RouteSection, SearchCategory, AddressResult, AppView, MealSearchMode } from '@/lib/types';
+import KakaoAdFit from '@/components/KakaoAdFit';
+import { LatLng, Place, RouteResult, RouteSection, SearchCategory, AddressResult, AppView, MealSearchMode, NaviApp } from '@/lib/types';
 import { parseVertexes } from '@/lib/polyline';
 import { searchAlongRoute } from '@/lib/searchAlongRoute';
 import { sortByRecommendation } from '@/lib/recommend';
 import { searchMealPlaces } from '@/lib/estimateArrival';
+import { openNaviApp, getNaviInfo } from '@/lib/deeplink';
+import { makeRouteKey, makePlaceKey, getCache, setCache, ROUTE_CACHE_TTL, PLACE_CACHE_TTL } from '@/lib/cache';
 
 export default function HomePage() {
   // App state
@@ -93,6 +96,18 @@ export default function HomePage() {
   // 경로 조회
   const fetchRoute = useCallback(async () => {
     if (!originCoord || !destCoord) return;
+
+    // 캐시 확인
+    const cacheKey = makeRouteKey(originCoord.lat, originCoord.lng, destCoord.lat, destCoord.lng);
+    const cached = getCache<RouteResult>(cacheKey);
+    if (cached) {
+      setRoute(cached);
+      setOriginalRoute(cached);
+      setPlaces([]);
+      setView('route');
+      return;
+    }
+
     setIsLoading(true);
     setLoadingProgress(10);
     setLoadingText('경로 검색 중...');
@@ -108,6 +123,10 @@ export default function HomePage() {
       if (!routes?.length) throw new Error('경로를 찾을 수 없습니다');
 
       const result = parseRouteData(routes[0]);
+
+      // 캐시에 저장
+      setCache(cacheKey, result, ROUTE_CACHE_TTL);
+
       setRoute(result);
       setOriginalRoute(result);
       setPlaces([]); // 장소 목록 초기화 (카테고리 선택 시 검색)
@@ -130,6 +149,22 @@ export default function HomePage() {
 
   // 장소 검색
   const searchPlaces = async (polyline: LatLng[], cat: SearchCategory, totalDuration?: number) => {
+    // 캐시 확인 (경로 기준으로 캐싱)
+    if (originCoord && destCoord) {
+      const keyword = cat === 'custom' ? customKeyword : undefined;
+      const categoryKey = cat === 'custom' && keyword ? `custom_${keyword}` : cat;
+      const cacheKey = makePlaceKey(originCoord.lat, originCoord.lng, destCoord.lat, destCoord.lng, categoryKey);
+      const cached = getCache<Place[]>(cacheKey);
+
+      if (cached) {
+        setPlaces(cached);
+        setHasSearched(true);
+        setSelectedPlace(null);
+        setShowDetail(false);
+        return;
+      }
+    }
+
     setIsLoading(true);
     setHasSearched(true);
     setSelectedPlace(null);
@@ -152,6 +187,14 @@ export default function HomePage() {
 
       // 주유소는 이미 가격순 정렬됨, 나머지는 추천순
       const sorted = cat === 'fuel' ? found : sortByRecommendation(found);
+
+      // 캐시에 저장
+      if (originCoord && destCoord) {
+        const categoryKey = cat === 'custom' && keyword ? `custom_${keyword}` : cat;
+        const cacheKey = makePlaceKey(originCoord.lat, originCoord.lng, destCoord.lat, destCoord.lng, categoryKey);
+        setCache(cacheKey, sorted, PLACE_CACHE_TTL);
+      }
+
       setPlaces(sorted);
       setLoadingProgress(100);
       setLoadingText(`${sorted.length}개 결과`);
@@ -235,11 +278,8 @@ export default function HomePage() {
     setMapCenter({ lat: place.lat, lng: place.lng });
 
     if (cardListRef.current) {
-      const idx = places.findIndex(p => p.id === place.id);
-      if (idx >= 0) {
-        const card = cardListRef.current.children[idx] as HTMLElement;
-        card?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-      }
+      const card = cardListRef.current.querySelector(`[data-place-id="${place.id}"]`) as HTMLElement;
+      card?.scrollIntoView({ behavior: 'instant', inline: 'center', block: 'nearest' });
     }
   };
 
@@ -295,19 +335,21 @@ export default function HomePage() {
     const container = cardListRef.current;
     const containerCenter = container.scrollLeft + container.clientWidth / 2;
 
-    let closestIdx = 0;
+    let closestPlaceId: string | null = null;
     let closestDist = Infinity;
-    Array.from(container.children).forEach((child, idx) => {
+    Array.from(container.children).forEach((child) => {
       const el = child as HTMLElement;
+      const placeId = el.getAttribute('data-place-id');
+      if (!placeId) return; // 광고 요소 건너뛰기
       const elCenter = el.offsetLeft + el.clientWidth / 2;
       const dist = Math.abs(elCenter - containerCenter);
       if (dist < closestDist) {
         closestDist = dist;
-        closestIdx = idx;
+        closestPlaceId = placeId;
       }
     });
 
-    const centerPlace = places[closestIdx];
+    const centerPlace = closestPlaceId ? places.find(p => p.id === closestPlaceId) : null;
     if (centerPlace && centerPlace.id !== selectedPlace?.id) {
       setSelectedPlace(centerPlace);
       setMapCenter({ lat: centerPlace.lat, lng: centerPlace.lng });
@@ -343,9 +385,12 @@ export default function HomePage() {
       {/* 앱 이름 */}
       {!isRouteView && view !== 'search' && (
         <div className="relative z-10 pt-[env(safe-area-inset-top)] px-4 pt-3 pb-1">
-          <h1 className="text-lg font-extrabold text-gray-800 tracking-tight">
-            <span className="text-blue-600">가는</span>길에
-          </h1>
+          <div className="inline-flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-xl px-3 py-1.5 shadow-md">
+            <span className="text-xl">🚗</span>
+            <h1 className="text-lg font-extrabold tracking-tight">
+              <span className="text-blue-600">가는</span><span className="text-gray-800">길에</span>
+            </h1>
+          </div>
         </div>
       )}
 
@@ -454,6 +499,51 @@ export default function HomePage() {
 
       {/* 하단 영역 */}
       <div className="relative z-10">
+        {/* 경유지 내비 선택 패널 */}
+        {isRouteView && !showDetail && waypoint && (
+          <div className="mx-4 mb-3 bg-white rounded-2xl shadow-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-base">📍</span>
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-400">경유지</p>
+                  <p className="text-sm font-bold text-gray-900 truncate">{waypoint.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleRemoveWaypoint}
+                className="p-1.5 rounded-full hover:bg-gray-100 flex-shrink-0"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="flex gap-2">
+              {(['kakao', 'naver', 'tmap'] as NaviApp[]).map((navi) => {
+                const info = getNaviInfo(navi);
+                return (
+                  <button
+                    key={navi}
+                    onClick={() => {
+                      if (!originCoord || !destCoord) return;
+                      const wp = { lat: waypoint.lat, lng: waypoint.lng, name: waypoint.name };
+                      const start = { ...originCoord, name: originName || '출발지' };
+                      const end = { ...destCoord, name: destName || '도착지' };
+                      if (navi === 'tmap') {
+                        alert('T맵은 경유지를 지원하지 않아 경유지를 목적지로 설정합니다.');
+                      }
+                      openNaviApp(navi, start, end, wp);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 active:scale-95 transition-all"
+                  >
+                    <span className="text-base">{info.icon}</span>
+                    <span className="text-xs font-semibold text-gray-700">{info.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* 상세 보기 */}
         {showDetail && selectedPlace ? (
           <PlaceDetail
@@ -477,14 +567,25 @@ export default function HomePage() {
                   className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-4 pb-2"
                   onScroll={handleCardScroll}
                 >
-                  {places.map((place) => (
-                    <PlaceCard
-                      key={place.id}
-                      place={place}
-                      isSelected={selectedPlace?.id === place.id}
-                      onClick={() => handlePlaceDetailOpen(place)}
-                    />
-                  ))}
+                  {places.flatMap((place, idx) => {
+                    const items = [
+                      <PlaceCard
+                        key={place.id}
+                        place={place}
+                        isSelected={selectedPlace?.id === place.id}
+                        onClick={() => handlePlaceDetailOpen(place)}
+                      />,
+                    ];
+                    // 5번째 카드마다 250x250 광고 삽입
+                    if (idx > 0 && (idx + 1) % 5 === 0 && idx < places.length - 1) {
+                      items.push(
+                        <div key={`ad-${idx}`} className="flex-shrink-0 snap-center flex items-center">
+                          <KakaoAdFit unit="DAN-k5zILat6MLLziW0G" width={250} height={250} />
+                        </div>
+                      );
+                    }
+                    return items;
+                  })}
                 </div>
               </div>
             )}
@@ -504,6 +605,11 @@ export default function HomePage() {
                 <p className="text-2xl mb-2">👆</p>
                 <p className="text-sm text-gray-600 font-medium">카테고리를 선택하여 경로 주변 장소를 찾아보세요</p>
               </div>
+            )}
+
+            {/* 카카오 애드핏 배너 */}
+            {isRouteView && hasSearched && !isLoading && (
+              <KakaoAdFit unit="DAN-T87VNKQlQ4NZY4r4" width={320} height={50} className="pb-2" />
             )}
           </>
         )}

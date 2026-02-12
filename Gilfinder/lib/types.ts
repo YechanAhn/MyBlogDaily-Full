@@ -33,6 +33,7 @@ export interface Place {
   placeUrl?: string;
   imageUrl?: string;
   isOpen?: boolean;
+  openHours?: string; // 영업시간 정보 (예: "영업중", "10:00~22:00")
   score?: number; // recommendation score
   // Fuel specific
   fuelPrice?: number;
@@ -62,7 +63,7 @@ export interface RouteResult {
   sections: RouteSection[];
 }
 
-export type SearchCategory = 'all' | 'coffee' | 'fuel' | 'food' | 'convenience' | 'rest' | 'custom';
+export type SearchCategory = 'all' | 'coffee' | 'fuel' | 'food' | 'convenience' | 'rest' | 'custom' | 'dessert';
 
 export type FuelType = 'gasoline' | 'diesel' | 'lpg';
 

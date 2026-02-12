@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const parseCoord = (value: string) => {
+  const [lngStr, latStr] = value.split(',');
+  const lng = parseFloat(lngStr);
+  const lat = parseFloat(latStr);
+  if (Number.isNaN(lng) || Number.isNaN(lat)) return null;
+  if (lng < 124 || lng > 132 || lat < 33 || lat > 39) return null;
+  return { lng, lat };
+};
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const origin = searchParams.get('origin'); // "lng,lat"
@@ -17,6 +26,12 @@ export async function GET(request: NextRequest) {
   if (!coordPattern.test(origin) || !coordPattern.test(destination)) {
     return NextResponse.json(
       { error: '유효하지 않은 좌표 형식입니다.' },
+      { status: 400 }
+    );
+  }
+  if (!parseCoord(origin) || !parseCoord(destination)) {
+    return NextResponse.json(
+      { error: '유효하지 않은 좌표입니다.' },
       { status: 400 }
     );
   }
@@ -78,9 +93,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 좌표 범위 검증
+    const isValidPoint = (p: any) =>
+      typeof p?.lng === 'number' && typeof p?.lat === 'number'
+      && p.lng >= 124 && p.lng <= 132
+      && p.lat >= 33 && p.lat <= 39;
+
+    if (!isValidPoint(origin) || !isValidPoint(destination)) {
+      return NextResponse.json(
+        { error: '유효하지 않은 좌표입니다.' },
+        { status: 400 }
+      );
+    }
+
     // 경유지 개수 제한
     if (waypoints && waypoints.length > 5) {
       return NextResponse.json({ error: '경유지는 최대 5개까지 가능합니다.' }, { status: 400 });
+    }
+
+    if (waypoints && Array.isArray(waypoints)) {
+      for (const wp of waypoints) {
+        if (!isValidPoint(wp)) {
+          return NextResponse.json({ error: '유효하지 않은 경유지 좌표입니다.' }, { status: 400 });
+        }
+        if (wp.name && String(wp.name).length > 60) {
+          return NextResponse.json({ error: '경유지 이름이 너무 깁니다.' }, { status: 400 });
+        }
+      }
     }
 
     // 경유지가 없으면 기본 경로 API 사용

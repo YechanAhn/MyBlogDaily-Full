@@ -3,11 +3,12 @@ import { samplePolyline, haversineDistance } from './polyline';
 
 const CATEGORY_MAP: Record<SearchCategory, { keyword: string; code?: string }> = {
   all: { keyword: '' },
-  coffee: { keyword: '카페', code: 'CE7' },
-  fuel: { keyword: '주유소', code: 'OL7' },
-  food: { keyword: '맛집', code: 'FD6' },
-  convenience: { keyword: '편의점', code: 'CS2' },
+  coffee: { keyword: '', code: 'CE7' },
+  fuel: { keyword: '', code: 'OL7' },
+  food: { keyword: '', code: 'FD6' },
+  convenience: { keyword: '', code: 'CS2' },
   rest: { keyword: '고속도로휴게소' },
+  dessert: { keyword: '두쫀쿠' },
   custom: { keyword: '' },
 };
 
@@ -84,8 +85,9 @@ export async function searchAlongRoute(
     });
   }
 
-  // 경로를 5등분하여 세그먼트별 상위 6개씩 선택 (총 30개)
-  const candidates = selectBySegments(filtered, polyline, 5, 6);
+  // 음식점/카페는 결과가 많으므로 더 많이 노출 (7×7=49), 나머지는 기존 (7×5=35)
+  const segPerCount = (category === 'food' || category === 'coffee') ? 7 : 5;
+  const candidates = selectBySegments(filtered, polyline, 7, segPerCount);
 
   onProgress?.(72, '우회 시간 계산 중...');
   let withDetour = await calculateDetourTimes(candidates, polyline, originalDuration);
@@ -115,6 +117,7 @@ export async function searchAlongRoute(
 /**
  * 경로를 N등분하여 세그먼트별 상위 M개 선택
  * 출발지 근처에 결과가 몰리는 문제 해결
+ * 거리와 인기도를 함께 고려하여 선택
  */
 function selectBySegments(
   places: Place[],
@@ -134,36 +137,103 @@ function selectBySegments(
 
   const segmentLength = totalDist / numSegments;
 
-  // 각 장소가 경로의 어느 세그먼트에 속하는지 결정
+  const segments: { start: LatLng; end: LatLng; lengthKm: number; cumStartKm: number }[] = [];
+  for (let i = 0; i < polyline.length - 1; i++) {
+    const start = polyline[i];
+    const end = polyline[i + 1];
+    const lengthKm = haversineDistance(start, end);
+    segments.push({ start, end, lengthKm, cumStartKm: cumDist[i] });
+  }
+
+  const toLocalXY = (lat: number, lng: number, refLat: number) => {
+    const rad = Math.PI / 180;
+    const k = 111.32; // km per degree
+    return {
+      x: lng * Math.cos(refLat * rad) * k,
+      y: lat * k,
+    };
+  };
+
+  const closestAlongRoute = (place: LatLng) => {
+    let bestDist = Infinity;
+    let bestAlongKm = 0;
+    for (const seg of segments) {
+      const refLat = (seg.start.lat + seg.end.lat) / 2;
+      const a = toLocalXY(seg.start.lat, seg.start.lng, refLat);
+      const b = toLocalXY(seg.end.lat, seg.end.lng, refLat);
+      const p = toLocalXY(place.lat, place.lng, refLat);
+      const abx = b.x - a.x;
+      const aby = b.y - a.y;
+      const apx = p.x - a.x;
+      const apy = p.y - a.y;
+      const abLen2 = abx * abx + aby * aby;
+      const t = abLen2 === 0 ? 0 : Math.max(0, Math.min(1, (apx * abx + apy * aby) / abLen2));
+      const cx = a.x + abx * t;
+      const cy = a.y + aby * t;
+      const dist = Math.hypot(p.x - cx, p.y - cy);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestAlongKm = seg.cumStartKm + seg.lengthKm * t;
+      }
+    }
+    return bestAlongKm;
+  };
+
+  // 각 장소가 경로의 어느 세그먼트에 속하는지 결정 (세그먼트 투영 기준)
   const segmented: Place[][] = Array.from({ length: numSegments }, () => []);
 
   for (const place of places) {
-    // 경로 상에서 가장 가까운 포인트의 누적 거리 찾기
-    let minDist = Infinity;
-    let closestCumDist = 0;
-    for (let i = 0; i < polyline.length; i++) {
-      const d = haversineDistance(polyline[i], { lat: place.lat, lng: place.lng });
-      if (d < minDist) {
-        minDist = d;
-        closestCumDist = cumDist[i];
-      }
-    }
-
-    const segIdx = Math.min(
-      Math.floor(closestCumDist / segmentLength),
-      numSegments - 1
-    );
+    const alongKm = closestAlongRoute({ lat: place.lat, lng: place.lng });
+    const segIdx = Math.min(Math.floor(alongKm / segmentLength), numSegments - 1);
     segmented[segIdx].push(place);
   }
 
-  // 각 세그먼트에서 경로와 가장 가까운 상위 perSegment개 선택
-  const selected: Place[] = [];
-  for (const segment of segmented) {
-    const sorted = segment.sort((a, b) => a.distance - b.distance);
-    selected.push(...sorted.slice(0, perSegment));
+  // 각 세그먼트에서 거리와 인기도를 고려한 점수 기반 선택
+  const totalQuota = numSegments * perSegment;
+  let remaining = totalQuota;
+  const firstPass: Place[] = [];
+  const overflowSegments: { idx: number; extras: Place[] }[] = [];
+
+  for (let i = 0; i < segmented.length; i++) {
+    const segment = segmented[i];
+
+    if (segment.length === 0) continue;
+
+    // 거리와 리뷰 수를 모두 고려한 점수 기반 정렬
+    // 거리가 가까울수록, 리뷰가 많을수록 점수가 낮음 (낮을수록 우선순위 높음)
+    const scored = segment.map(p => ({
+      ...p,
+      _score: p.distance * 0.7 + (p.reviewCount ? -Math.log(p.reviewCount + 1) * 200 : 0),
+    }));
+    scored.sort((a, b) => a._score - b._score);
+
+    // 세그먼트당 할당량만큼 선택
+    const take = Math.min(perSegment, scored.length);
+    firstPass.push(...scored.slice(0, take));
+    remaining -= take;
+
+    // 여분이 있는 세그먼트는 나중에 재분배용으로 저장
+    if (scored.length > perSegment) {
+      overflowSegments.push({ idx: i, extras: scored.slice(perSegment) });
+    }
   }
 
-  return selected;
+  // 빈 세그먼트의 할당량을 다른 세그먼트에 재분배
+  if (remaining > 0 && overflowSegments.length > 0) {
+    let added = true;
+    while (remaining > 0 && added) {
+      added = false;
+      for (const bucket of overflowSegments) {
+        if (bucket.extras.length === 0) continue;
+        firstPass.push(bucket.extras.shift()!);
+        remaining -= 1;
+        added = true;
+        if (remaining <= 0) break;
+      }
+    }
+  }
+
+  return firstPass;
 }
 
 /**
@@ -201,6 +271,7 @@ async function calculateDetourTimes(
 
   const origin = polyline[0];
   const destination = polyline[polyline.length - 1];
+  const routeDistanceMeters = calculateRouteDistance(polyline);
 
   // 5개씩 배치로 실제 경유 경로 계산
   const results: Place[] = [];
@@ -224,7 +295,7 @@ async function calculateDetourTimes(
           const newDuration = routes[0].summary?.duration || 0;
           const newDistance = routes[0].summary?.distance || 0;
           const deltaDuration = newDuration - originalDuration;
-          const deltaDistance = newDistance - (polyline.length > 0 ? calculateRouteDistance(polyline) : 0);
+          const deltaDistance = newDistance - routeDistanceMeters;
           return {
             ...place,
             detourMinutes: Math.max(0, Math.round(deltaDuration / 60)),
@@ -280,7 +351,13 @@ async function enrichFuelPrices(places: Place[]): Promise<Place[]> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        stations: places.map(p => ({ name: p.name, lat: p.lat, lng: p.lng })),
+        stations: places.map(p => ({
+          name: p.name,
+          lat: p.lat,
+          lng: p.lng,
+          address: p.address,
+          roadAddress: p.roadAddress,
+        })),
       }),
     });
     if (!res.ok) return places;
@@ -323,9 +400,14 @@ async function fetchPlaces(
       size: '15',
     });
 
-    if (keyword) params.set('query', keyword);
-    if (categoryCode) params.set('category_group_code', categoryCode);
-    if (!keyword && categoryCode) params.set('query', ' ');
+    if (!keyword && categoryCode) {
+      // 카테고리 코드만 있는 경우 카테고리 검색 API 사용
+      params.set('category_group_code', categoryCode);
+      params.set('mode', 'category');
+    } else {
+      if (keyword) params.set('query', keyword);
+      if (categoryCode) params.set('category_group_code', categoryCode);
+    }
 
     const res = await fetch(`/api/search?${params.toString()}`);
     if (!res.ok) return [];
