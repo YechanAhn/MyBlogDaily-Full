@@ -102,7 +102,7 @@ export interface RouteResult {
   sections: RouteSection[];
 }
 
-export type SearchCategory = 'all' | 'coffee' | 'fuel' | 'food' | 'rest' | 'custom' | 'ev';
+export type SearchCategory = 'all' | 'coffee' | 'fuel' | 'food' | 'rest' | 'custom' | 'ev' | 'dt';
 
 export type FuelType = 'gasoline' | 'diesel' | 'lpg';
 

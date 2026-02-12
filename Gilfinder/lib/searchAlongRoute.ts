@@ -8,6 +8,7 @@ const CATEGORY_MAP: Record<SearchCategory, { keyword: string; code?: string }> =
   food: { keyword: '', code: 'FD6' },
   rest: { keyword: '고속도로휴게소' },
   ev: { keyword: '전기차충전소' },
+  dt: { keyword: '드라이브스루' },
   custom: { keyword: '' },
 };
 

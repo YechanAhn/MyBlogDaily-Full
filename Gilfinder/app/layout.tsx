@@ -44,6 +44,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const kakaoJsKey = process.env.NEXT_PUBLIC_KAKAO_JS_KEY || '';
+  const ga4Id = process.env.NEXT_PUBLIC_GA4_ID;
 
   return (
     <html lang="ko">
@@ -76,6 +77,24 @@ export default function RootLayout({
             }
           `}
         </Script>
+
+        {/* Google Analytics 4 (GA4) - 프로덕션 환경에서만 로드 */}
+        {ga4Id && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${ga4Id}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga4-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${ga4Id}');
+              `}
+            </Script>
+          </>
+        )}
       </body>
     </html>
   );

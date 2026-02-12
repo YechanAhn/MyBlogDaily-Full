@@ -10,10 +10,11 @@ interface CategoryTabsProps {
 const CATEGORIES: { key: SearchCategory; label: string; emoji: string }[] = [
   { key: 'custom', label: '검색', emoji: '🔍' },
   { key: 'ev', label: '전기차', emoji: '🔌' },
+  { key: 'dt', label: 'DT', emoji: '🚗' },
   { key: 'fuel', label: '주유소', emoji: '⛽' },
+  { key: 'rest', label: '휴게소', emoji: '🅿️' },
   { key: 'food', label: '맛집', emoji: '🍽️' },
   { key: 'coffee', label: '카페', emoji: '☕' },
-  { key: 'rest', label: '휴게소', emoji: '🅿️' },
 ];
 
 export default function CategoryTabs({ value, onChange }: CategoryTabsProps) {

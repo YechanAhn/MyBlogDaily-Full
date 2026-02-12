@@ -10,6 +10,7 @@ import RoutePanel from '@/components/RoutePanel';
 import MealSearch from '@/components/MealSearch';
 import KakaoAdFit from '@/components/KakaoAdFit';
 import ChargerTypeFilter, { filterByChargerType } from '@/components/ChargerTypeFilter';
+import OnboardingPopup from '@/components/OnboardingPopup';
 import { LatLng, Place, RouteResult, RouteSection, SearchCategory, AddressResult, AppView, MealSearchMode, NaviApp } from '@/lib/types';
 import { parseVertexes } from '@/lib/polyline';
 import { searchAlongRoute } from '@/lib/searchAlongRoute';
@@ -27,6 +28,7 @@ export default function HomePage() {
   const [category, setCategory] = useState<SearchCategory>('food');
   const [customKeyword, setCustomKeyword] = useState('');
   const [maxDetourMin] = useState(30);
+  const [routePriority, setRoutePriority] = useState<'RECOMMEND' | 'TIME'>('RECOMMEND');
 
   // Route & search state
   const [route, setRoute] = useState<RouteResult | null>(null);
@@ -117,7 +119,7 @@ export default function HomePage() {
 
     try {
       const res = await fetch(
-        `/api/route?origin=${originCoord.lng},${originCoord.lat}&destination=${destCoord.lng},${destCoord.lat}`
+        `/api/route?origin=${originCoord.lng},${originCoord.lat}&destination=${destCoord.lng},${destCoord.lat}&priority=${routePriority}`
       );
       if (!res.ok) throw new Error('경로를 찾을 수 없습니다');
 
@@ -141,7 +143,7 @@ export default function HomePage() {
       setLoadingProgress(0);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [originCoord, destCoord]);
+  }, [originCoord, destCoord, routePriority]);
 
   useEffect(() => {
     if (originCoord && destCoord) {
@@ -149,6 +151,14 @@ export default function HomePage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destCoord]);
+
+  // 경로 우선순위 변경 시 재검색
+  useEffect(() => {
+    if (originCoord && destCoord && route) {
+      fetchRoute();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routePriority]);
 
   // 경로 설정 시 대기 중인 카테고리 자동 검색
   useEffect(() => {
@@ -394,6 +404,7 @@ export default function HomePage() {
             origin: originCoord,
             destination: destCoord,
             waypoints: [{ lat: place.lat, lng: place.lng, name: place.name }],
+            priority: routePriority,
           }),
         });
         if (!res.ok) return;
@@ -517,6 +528,28 @@ export default function HomePage() {
           />
         )}
       </div>
+
+      {/* 경로 우선순위 토글 */}
+      {isRouteView && !showDetail && (
+        <div className="relative z-10 px-4 mt-1 flex justify-end">
+          <button
+            onClick={() => {
+              const next = routePriority === 'RECOMMEND' ? 'TIME' : 'RECOMMEND';
+              setRoutePriority(next);
+              if (originCoord && destCoord) {
+                // 재검색을 위해 경로 초기화
+                setRoute(null);
+                setOriginalRoute(null);
+                setPlaces([]);
+                setHasSearched(false);
+              }
+            }}
+            className="text-xs px-2.5 py-1 rounded-full bg-white/90 shadow-sm text-gray-600 hover:bg-white transition-all"
+          >
+            {routePriority === 'RECOMMEND' ? '🛣️ 추천 경로' : '⚡ 최단 시간'}
+          </button>
+        </div>
+      )}
 
       {/* 카테고리 칩 */}
       {view !== 'search' && !showDetail && (
@@ -728,6 +761,9 @@ export default function HomePage() {
           </>
         )}
       </div>
+
+      {/* 온보딩 팝업 */}
+      <OnboardingPopup />
     </div>
   );
 }

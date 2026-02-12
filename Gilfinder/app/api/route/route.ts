@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const origin = searchParams.get('origin'); // "lng,lat"
   const destination = searchParams.get('destination'); // "lng,lat"
+  const priority = searchParams.get('priority') === 'TIME' ? 'TIME' : 'RECOMMEND';
 
   if (!origin || !destination) {
     return NextResponse.json(
@@ -50,11 +51,11 @@ export async function GET(request: NextRequest) {
 
   try {
     // 캐시 조회
-    const cacheKey = `route:${roundCoord(origin)}:${roundCoord(destination)}`;
+    const cacheKey = `route:${roundCoord(origin)}:${roundCoord(destination)}:${priority}`;
     const cached = await cacheGet(cacheKey);
     if (cached) return NextResponse.json(cached);
 
-    const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin}&destination=${destination}&priority=TIME`;
+    const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin}&destination=${destination}&priority=${priority}`;
 
     const res = await fetch(url, {
       headers: {
@@ -95,7 +96,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { origin, destination, waypoints } = body;
+    const { origin, destination, waypoints, priority } = body;
+    const routePriority = priority === 'TIME' ? 'TIME' : 'RECOMMEND';
 
     if (!origin || !destination) {
       return NextResponse.json(
@@ -135,7 +137,7 @@ export async function POST(request: NextRequest) {
 
     // 경유지가 없으면 기본 경로 API 사용
     if (!waypoints || waypoints.length === 0) {
-      const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin.lng},${origin.lat}&destination=${destination.lng},${destination.lat}&priority=TIME`;
+      const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin.lng},${origin.lat}&destination=${destination.lng},${destination.lat}&priority=${routePriority}`;
       const res = await fetch(url, {
         headers: { Authorization: `KakaoAK ${apiKey}` },
       });
@@ -154,7 +156,7 @@ export async function POST(request: NextRequest) {
         x: wp.lng,
         y: wp.lat,
       })),
-      priority: 'TIME',
+      priority: routePriority,
     };
 
     const res = await fetch('https://apis-navi.kakaomobility.com/v1/waypoints/directions', {
