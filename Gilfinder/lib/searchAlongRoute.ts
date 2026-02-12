@@ -303,8 +303,8 @@ async function calculateDetourTimes(
     const distMeters = segInfo.perpDistKm * 1000;
     // 도로 계수 1.4 적용, 평균 40km/h 가정, 왕복
     const drivingMin = (distMeters * 1.4 / 1000) / 40 * 60 * 2;
-    // 반대편(왼쪽) + 경로 가까이(500m 이내) = 고속도로 반대편 → +8분 패널티
-    const wrongSidePenalty = (!segInfo.isRightSide && distMeters < 500) ? 8 : 0;
+    // 반대편(왼쪽) + 경로 가까이(1km 이내) = 고속도로 반대편 → +15분 패널티
+    const wrongSidePenalty = (!segInfo.isRightSide && distMeters < 1000) ? 15 : 0;
     const detourMinutes = Math.max(1, Math.round(drivingMin + 3 + wrongSidePenalty));
     return { ...place, detourMinutes, detourDistance: Math.round(distMeters * 1.4 * 2) };
   });
