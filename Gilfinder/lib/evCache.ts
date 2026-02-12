@@ -12,16 +12,19 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 
 // ===================== API 응답 파싱 =====================
 
-/** XML 응답에서 <item> 목록 추출 */
+/** XML 응답에서 <item> 목록 추출 (split 기반 — 대용량 XML에서 스택 오버플로우 방지) */
 function parseXmlItems(xml: string): Record<string, string>[] {
   const items: Record<string, string>[] = [];
-  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-  let match;
-  while ((match = itemRegex.exec(xml)) !== null) {
+  const parts = xml.split('<item>');
+  // parts[0]은 <item> 이전 헤더, 나머지가 각 아이템
+  for (let i = 1; i < parts.length; i++) {
+    const endIdx = parts[i].indexOf('</item>');
+    if (endIdx === -1) continue;
+    const itemContent = parts[i].substring(0, endIdx);
     const fields: Record<string, string> = {};
     const fieldRegex = /<(\w+)>([^<]*)<\/\1>/g;
     let fieldMatch;
-    while ((fieldMatch = fieldRegex.exec(match[1])) !== null) {
+    while ((fieldMatch = fieldRegex.exec(itemContent)) !== null) {
       fields[fieldMatch[1]] = fieldMatch[2];
     }
     items.push(fields);
