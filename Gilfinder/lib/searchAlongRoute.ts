@@ -85,9 +85,9 @@ export async function searchAlongRoute(
     });
   }
 
-  // 음식점/카페는 결과가 많으므로 더 많이 노출 (7×7=49), 나머지는 기존 (7×5=35)
-  const segPerCount = (category === 'food' || category === 'coffee') ? 7 : 5;
-  const candidates = selectBySegments(filtered, polyline, 7, segPerCount);
+  const numSegments = 10;
+  const segPerCount = (category === 'food' || category === 'coffee') ? 5 : 3;
+  const candidates = selectBySegments(filtered, polyline, numSegments, segPerCount, category);
 
   onProgress?.(72, '우회 시간 계산 중...');
   let withDetour = await calculateDetourTimes(candidates, polyline, originalDuration);
@@ -111,7 +111,7 @@ export async function searchAlongRoute(
     });
   }
 
-  return results.sort((a, b) => a.detourMinutes - b.detourMinutes);
+  return results;  // 세그먼트 순서 유지
 }
 
 /**
@@ -123,7 +123,8 @@ function selectBySegments(
   places: Place[],
   polyline: LatLng[],
   numSegments: number,
-  perSegment: number
+  perSegment: number,
+  category: SearchCategory
 ): Place[] {
   if (polyline.length < 2) return places.slice(0, numSegments * perSegment);
 
@@ -201,9 +202,10 @@ function selectBySegments(
 
     // 거리와 리뷰 수를 모두 고려한 점수 기반 정렬
     // 거리가 가까울수록, 리뷰가 많을수록 점수가 낮음 (낮을수록 우선순위 높음)
+    const distWeight = (category === 'food' || category === 'coffee' || category === 'dessert') ? 0 : 0.7;
     const scored = segment.map(p => ({
       ...p,
-      _score: p.distance * 0.7 + (p.reviewCount ? -Math.log(p.reviewCount + 1) * 200 : 0),
+      _score: p.distance * distWeight + (p.reviewCount ? -Math.log(p.reviewCount + 1) * 200 : 0),
     }));
     scored.sort((a, b) => a._score - b._score);
 
@@ -247,88 +249,20 @@ function calculateTotalDistance(polyline: LatLng[]): number {
   return total;
 }
 
-/**
- * 실제 경유 시 추가 시간/거리 계산
- * 원래 경로 대비 경유지 추가 경로의 차이를 Kakao API로 계산
- */
 async function calculateDetourTimes(
   places: Place[],
   polyline: LatLng[],
-  originalDuration?: number
+  _originalDuration?: number
 ): Promise<Place[]> {
-  if (!originalDuration || polyline.length < 2) {
-    // API 호출 불가 시 거리 기반 추정
-    return places.map(place => {
-      const nearestDist = nearestRouteDistance(polyline, { lat: place.lat, lng: place.lng });
-      const distMeters = nearestDist * 1000;
-      // 도로 계수 1.4 적용, 평균 40km/h 가정, 왕복
-      const drivingMin = (distMeters * 1.4 / 1000) / 40 * 60 * 2;
-      // 고속도로 진출입 시간 추가 (약 3분)
-      const detourMinutes = Math.max(1, Math.round(drivingMin + 3));
-      return { ...place, detourMinutes, detourDistance: Math.round(distMeters * 1.4 * 2) };
-    });
-  }
-
-  const origin = polyline[0];
-  const destination = polyline[polyline.length - 1];
-  const routeDistanceMeters = calculateRouteDistance(polyline);
-
-  // 5개씩 배치로 실제 경유 경로 계산
-  const results: Place[] = [];
-  for (let i = 0; i < places.length; i += 5) {
-    const batch = places.slice(i, i + 5);
-    const promises = batch.map(async (place) => {
-      try {
-        const res = await fetch('/api/route', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            origin,
-            destination,
-            waypoints: [{ lat: place.lat, lng: place.lng, name: place.name }],
-          }),
-        });
-        if (!res.ok) throw new Error('API error');
-        const data = await res.json();
-        const routes = data.routes;
-        if (routes?.length) {
-          const newDuration = routes[0].summary?.duration || 0;
-          const newDistance = routes[0].summary?.distance || 0;
-          const deltaDuration = newDuration - originalDuration;
-          const deltaDistance = newDistance - routeDistanceMeters;
-          return {
-            ...place,
-            detourMinutes: Math.max(0, Math.round(deltaDuration / 60)),
-            detourDistance: Math.max(0, Math.round(deltaDistance)),
-          };
-        }
-      } catch {
-        // 실패 시 거리 기반 추정
-      }
-      const nearestDist = nearestRouteDistance(polyline, { lat: place.lat, lng: place.lng });
-      const distMeters = nearestDist * 1000;
-      const drivingMin = (distMeters * 1.4 / 1000) / 40 * 60 * 2;
-      return {
-        ...place,
-        detourMinutes: Math.max(1, Math.round(drivingMin + 3)),
-        detourDistance: Math.round(distMeters * 1.4 * 2),
-      };
-    });
-    results.push(...await Promise.all(promises));
-  }
-
-  return results;
-}
-
-/**
- * 폴리라인 총 거리 계산 (m)
- */
-function calculateRouteDistance(polyline: LatLng[]): number {
-  let total = 0;
-  for (let i = 1; i < polyline.length; i++) {
-    total += haversineDistance(polyline[i - 1], polyline[i]) * 1000;
-  }
-  return total;
+  return places.map(place => {
+    const nearestDist = nearestRouteDistance(polyline, { lat: place.lat, lng: place.lng });
+    const distMeters = nearestDist * 1000;
+    // 도로 계수 1.4 적용, 평균 40km/h 가정, 왕복
+    const drivingMin = (distMeters * 1.4 / 1000) / 40 * 60 * 2;
+    // 고속도로 진출입 시간 추가 (약 3분)
+    const detourMinutes = Math.max(1, Math.round(drivingMin + 3));
+    return { ...place, detourMinutes, detourDistance: Math.round(distMeters * 1.4 * 2) };
+  });
 }
 
 function nearestRouteDistance(polyline: LatLng[], point: LatLng): number {

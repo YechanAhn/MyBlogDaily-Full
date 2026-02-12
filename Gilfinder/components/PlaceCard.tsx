@@ -10,10 +10,10 @@ interface PlaceCardProps {
 }
 
 // 장소 상세 정보 캐시
-const detailCache = new Map<string, { imageUrl?: string; rating?: number; reviewCount?: number; openHours?: string }>();
+const detailCache = new Map<string, { imageUrl?: string; rating?: number; reviewCount?: number; openHours?: string; ratingSource?: 'kakao' | 'google' | null }>();
 
 export default function PlaceCard({ place, isSelected, onClick }: PlaceCardProps) {
-  const [detail, setDetail] = useState<{ imageUrl?: string; rating?: number; reviewCount?: number; openHours?: string } | null>(
+  const [detail, setDetail] = useState<{ imageUrl?: string; rating?: number; reviewCount?: number; openHours?: string; ratingSource?: 'kakao' | 'google' | null } | null>(
     detailCache.get(place.id) || null
   );
   const [imgError, setImgError] = useState(false);
@@ -21,6 +21,7 @@ export default function PlaceCard({ place, isSelected, onClick }: PlaceCardProps
 
   // Lazy-load: IntersectionObserver로 보일 때만 상세 정보 fetch
   useEffect(() => {
+    if (place.rating !== undefined && place.rating !== null) return;
     if (detailCache.has(place.id)) {
       setDetail(detailCache.get(place.id)!);
       return;
@@ -56,6 +57,7 @@ export default function PlaceCard({ place, isSelected, onClick }: PlaceCardProps
         rating: data.rating ?? undefined,
         reviewCount: data.reviewCount ?? undefined,
         openHours: data.openHours || undefined,
+        ratingSource: data.ratingSource || undefined,
       };
       detailCache.set(place.id, info);
       setDetail(info);
@@ -127,9 +129,15 @@ export default function PlaceCard({ place, isSelected, onClick }: PlaceCardProps
 
         <div className="flex items-center gap-1.5 flex-wrap mb-2">
           {displayRating !== undefined && displayRating !== null ? (
-            <span className="text-[12px] font-semibold text-amber-500">★ {displayRating.toFixed(1)}</span>
+            <span className="text-[12px] font-semibold text-amber-500">
+              ★ {displayRating.toFixed(1)}
+              <span className="text-[10px] text-gray-400 ml-0.5">
+                {(detail?.ratingSource ?? place.ratingSource) === 'google' ? 'G' :
+                 (detail?.ratingSource ?? place.ratingSource) === 'kakao' ? 'K' : ''}
+              </span>
+            </span>
           ) : (
-            <span className="text-[11px] text-amber-500">⭐ 리뷰 보기</span>
+            <span className="text-[11px] text-gray-400">평점 없음</span>
           )}
           {displayReviews !== undefined && displayReviews !== null && displayReviews > 0 && (
             <span className="text-[11px] text-gray-400">리뷰 {displayReviews >= 1000 ? `${(displayReviews / 1000).toFixed(1)}k` : displayReviews}</span>

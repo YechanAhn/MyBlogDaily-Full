@@ -187,6 +187,7 @@ async function fetchKakaoPlaceAPI(placeId: string) {
       rating: rating !== null ? Math.round(Math.min(5, Math.max(0, rating)) * 10) / 10 : null,
       reviewCount,
       openHours,
+      ratingSource: (rating !== null ? 'kakao' : null) as 'kakao' | 'google' | null,
     };
   } catch {
     return null;
@@ -263,6 +264,7 @@ export async function GET(request: NextRequest) {
               ...apiResult,
               rating: googleRating.rating,
               reviewCount: googleRating.reviewCount,
+              ratingSource: 'google' as const,
             };
           }
         }

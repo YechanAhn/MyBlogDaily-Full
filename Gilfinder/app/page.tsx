@@ -12,7 +12,6 @@ import KakaoAdFit from '@/components/KakaoAdFit';
 import { LatLng, Place, RouteResult, RouteSection, SearchCategory, AddressResult, AppView, MealSearchMode, NaviApp } from '@/lib/types';
 import { parseVertexes } from '@/lib/polyline';
 import { searchAlongRoute } from '@/lib/searchAlongRoute';
-import { sortByRecommendation } from '@/lib/recommend';
 import { searchMealPlaces } from '@/lib/estimateArrival';
 import { openNaviApp, getNaviInfo } from '@/lib/deeplink';
 import { makeRouteKey, makePlaceKey, getCache, setCache, ROUTE_CACHE_TTL, PLACE_CACHE_TTL } from '@/lib/cache';
@@ -46,6 +45,7 @@ export default function HomePage() {
   const [mealLocation, setMealLocation] = useState<LatLng | null>(null);
 
   const cardListRef = useRef<HTMLDivElement>(null);
+  const searchRequestRef = useRef(0);
 
   // 현재 위치 가져오기
   useEffect(() => {
@@ -147,15 +147,57 @@ export default function HomePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destCoord]);
 
+  // 평점 프리로드 함수
+  const preloadRatings = async (
+    places: Place[],
+    requestId: number,
+    onBatchDone?: (done: number, total: number) => void
+  ): Promise<Place[]> => {
+    const results = [...places];
+    const batchSize = 10;
+    const totalBatches = Math.ceil(places.length / batchSize);
+
+    for (let i = 0; i < places.length; i += batchSize) {
+      if (requestId !== searchRequestRef.current) return results;
+      const batch = places.slice(i, i + batchSize);
+      const details = await Promise.all(
+        batch.map(p =>
+          fetch(`/api/place-detail?id=${p.id}&name=${encodeURIComponent(p.name)}&lat=${p.lat}&lng=${p.lng}`)
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+        )
+      );
+
+      batch.forEach((p, j) => {
+        const d = details[j];
+        if (d) {
+          results[i + j] = {
+            ...results[i + j],
+            rating: d.rating ?? results[i + j].rating,
+            reviewCount: d.reviewCount ?? results[i + j].reviewCount,
+            ratingSource: d.ratingSource ?? null,
+            imageUrl: d.imageUrl ?? results[i + j].imageUrl,
+          };
+        }
+      });
+
+      onBatchDone?.(Math.floor(i / batchSize) + 1, totalBatches);
+
+      if (i + batchSize < places.length) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+    }
+    return results;
+  };
+
   // 장소 검색
   const searchPlaces = async (polyline: LatLng[], cat: SearchCategory, totalDuration?: number) => {
-    // 캐시 확인 (경로 기준으로 캐싱)
+    // 캐시 확인
     if (originCoord && destCoord) {
       const keyword = cat === 'custom' ? customKeyword : undefined;
       const categoryKey = cat === 'custom' && keyword ? `custom_${keyword}` : cat;
       const cacheKey = makePlaceKey(originCoord.lat, originCoord.lng, destCoord.lat, destCoord.lng, categoryKey);
       const cached = getCache<Place[]>(cacheKey);
-
       if (cached) {
         setPlaces(cached);
         setHasSearched(true);
@@ -165,6 +207,7 @@ export default function HomePage() {
       }
     }
 
+    const requestId = ++searchRequestRef.current;
     setIsLoading(true);
     setHasSearched(true);
     setSelectedPlace(null);
@@ -182,28 +225,54 @@ export default function HomePage() {
         }
       );
 
-      setLoadingProgress(95);
-      setLoadingText('결과 정렬 중...');
+      if (requestId !== searchRequestRef.current) return;
 
-      // 주유소는 이미 가격순 정렬됨, 나머지는 추천순
-      const sorted = cat === 'fuel' ? found : sortByRecommendation(found);
+      // 1단계: 즉시 표시 (세그먼트 순서)
+      setPlaces(found);
+      setLoadingProgress(70);
+      setLoadingText(`${found.length}개 장소 발견 · 평점 로딩 중...`);
 
-      // 캐시에 저장
-      if (originCoord && destCoord) {
-        const categoryKey = cat === 'custom' && keyword ? `custom_${keyword}` : cat;
-        const cacheKey = makePlaceKey(originCoord.lat, originCoord.lng, destCoord.lat, destCoord.lng, categoryKey);
-        setCache(cacheKey, sorted, PLACE_CACHE_TTL);
+      // 2단계: 평점 프리로드 (fuel 제외)
+      if (cat !== 'fuel') {
+        const withRatings = await preloadRatings(found, requestId, (batchDone, totalBatches) => {
+          if (requestId !== searchRequestRef.current) return;
+          const progress = 70 + Math.round((batchDone / totalBatches) * 25);
+          setLoadingProgress(progress);
+          setLoadingText(`평점 로딩 중... (${batchDone}/${totalBatches})`);
+        });
+
+        if (requestId !== searchRequestRef.current) return;
+
+        // 3단계: 별점순 정렬
+        setLoadingProgress(97);
+        setLoadingText('별점순 정렬 중...');
+        withRatings.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+        setPlaces(withRatings);
+
+        // 프리로드 완료 데이터로 캐시
+        if (originCoord && destCoord) {
+          const categoryKey = cat === 'custom' && keyword ? `custom_${keyword}` : cat;
+          const cacheKey = makePlaceKey(originCoord.lat, originCoord.lng, destCoord.lat, destCoord.lng, categoryKey);
+          setCache(cacheKey, withRatings, PLACE_CACHE_TTL);
+        }
+      } else {
+        if (originCoord && destCoord) {
+          const cacheKey = makePlaceKey(originCoord.lat, originCoord.lng, destCoord.lat, destCoord.lng, cat);
+          setCache(cacheKey, found, PLACE_CACHE_TTL);
+        }
       }
 
-      setPlaces(sorted);
       setLoadingProgress(100);
-      setLoadingText(`${sorted.length}개 결과`);
+      setLoadingText('완료!');
     } catch {
       setPlaces([]);
     } finally {
       setTimeout(() => {
-        setIsLoading(false);
-        setLoadingProgress(0);
+        if (requestId === searchRequestRef.current) {
+          setIsLoading(false);
+          setLoadingProgress(0);
+          setLoadingText('');
+        }
       }, 500);
     }
   };
@@ -245,7 +314,7 @@ export default function HomePage() {
       if (result.places.length > 0) {
         setMealLocation(result.location);
         setMapCenter(result.location);
-        const sorted = sortByRecommendation(result.places);
+        const sorted = [...result.places].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
         setPlaces(sorted);
         setCategory('food');
         setShowMealSearch(false);
@@ -379,6 +448,8 @@ export default function HomePage() {
           mealLocation={mealLocation}
           onPlaceSelect={handlePlaceSelect}
           center={mapCenter}
+          origin={originCoord}
+          destination={destCoord}
         />
       </div>
 

@@ -30,6 +30,7 @@ export interface Place {
   detourDistance?: number; // actual detour distance in meters
   rating?: number;
   reviewCount?: number;
+  ratingSource?: 'kakao' | 'google' | null;
   placeUrl?: string;
   imageUrl?: string;
   isOpen?: boolean;

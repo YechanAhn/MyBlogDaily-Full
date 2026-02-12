@@ -722,11 +722,13 @@ test.describe('Section C: 설날 시나리오 검증', () => {
       return;
     }
 
-    // 평점 표시 확인 (★ N.N 또는 "리뷰 보기")
-    // PlaceCard에서 rating이 있으면 "★ 4.5", 없으면 "리뷰 보기"
+    // 평점 표시 확인 (★ N.N 또는 "평점 없음")
+    // PlaceCard에서 rating이 있으면 "★ 4.5", 없으면 "평점 없음"
+    // 평점은 프리로드 후 표시되므로 충분한 대기 시간 필요
+    await page.waitForTimeout(8000);
     const ratingOrReview = page.locator('[data-place-id]').first()
-      .locator('span').filter({ hasText: /★|리뷰/ });
-    await expect(ratingOrReview.first()).toBeVisible({ timeout: 5000 });
+      .locator('span').filter({ hasText: /★|평점/ });
+    await expect(ratingOrReview.first()).toBeVisible({ timeout: 10000 });
   });
 
   test('영업시간 표시: openHours 정보', async ({ page }) => {

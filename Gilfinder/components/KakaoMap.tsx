@@ -17,6 +17,8 @@ interface KakaoMapProps {
   onPlaceSelect?: (place: Place) => void;
   center?: LatLng;
   onMapReady?: () => void;
+  origin?: LatLng | null;
+  destination?: LatLng | null;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -35,6 +37,8 @@ export default function KakaoMap({
   onPlaceSelect,
   center,
   onMapReady,
+  origin,
+  destination,
 }: KakaoMapProps) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -44,6 +48,8 @@ export default function KakaoMap({
   const polylineRef = useRef<any>(null);
   const mealMarkerRef = useRef<any>(null);
   const selectedOverlayRef = useRef<any>(null);
+  const originOverlayRef = useRef<any>(null);
+  const destOverlayRef = useRef<any>(null);
 
   // Initialize map
   useEffect(() => {
@@ -191,6 +197,7 @@ export default function KakaoMap({
             </span>
           </div>
           ${hasFuelPrice ? `<div style="background:#EF4444;color:white;font-size:10px;font-weight:700;padding:1px 5px;border-radius:6px;margin-top:2px;white-space:nowrap;">${place.fuelPrice!.toLocaleString()}원</div>` : ''}
+          ${!hasFuelPrice && place.rating ? `<div style="background:#FEF3C7;color:#D97706;font-size:9px;font-weight:700;padding:1px 4px;border-radius:4px;margin-top:2px;white-space:nowrap;">★${place.rating.toFixed(1)}${place.ratingSource === 'google' ? ' G' : ''}</div>` : ''}
         </div>
       `;
 
@@ -278,6 +285,35 @@ export default function KakaoMap({
       mealMarkerRef.current.setMap(map);
     }
   }, [mealLocation]);
+
+  // 출발지/도착지 마커
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (originOverlayRef.current) originOverlayRef.current.setMap(null);
+    if (destOverlayRef.current) destOverlayRef.current.setMap(null);
+
+    if (origin) {
+      const pos = new window.kakao.maps.LatLng(origin.lat, origin.lng);
+      const content = `<div style="width:32px;height:32px;background:#3B82F6;border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);"><span style="color:white;font-weight:900;font-size:14px;">S</span></div>`;
+      originOverlayRef.current = new window.kakao.maps.CustomOverlay({
+        position: pos, content, yAnchor: 0.5, xAnchor: 0.5, zIndex: 5,
+      });
+      originOverlayRef.current.setMap(map);
+    }
+    if (destination) {
+      const pos = new window.kakao.maps.LatLng(destination.lat, destination.lng);
+      const content = `<div style="width:32px;height:32px;background:#EF4444;border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);"><span style="color:white;font-weight:900;font-size:14px;">E</span></div>`;
+      destOverlayRef.current = new window.kakao.maps.CustomOverlay({
+        position: pos, content, yAnchor: 0.5, xAnchor: 0.5, zIndex: 5,
+      });
+      destOverlayRef.current.setMap(map);
+    }
+    return () => {
+      originOverlayRef.current?.setMap(null);
+      destOverlayRef.current?.setMap(null);
+    };
+  }, [origin, destination]);
 
   return (
     <div className="absolute inset-0 w-full h-full" style={{ touchAction: 'pan-x pan-y' }}>
