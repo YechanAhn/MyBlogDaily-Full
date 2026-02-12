@@ -131,6 +131,12 @@ export async function searchAlongRoute(
     withDetour = await enrichFuelPrices(withDetour);
   }
 
+  // 전기차 충전소일 때 충전기 타입 데이터 보강
+  if (category === 'ev') {
+    onProgress?.(85, '충전기 정보 조회 중...');
+    withDetour = await enrichEvChargerInfo(withDetour);
+  }
+
   onProgress?.(92, '결과 정렬 중...');
   const results = withDetour.filter(p => p.detourMinutes <= maxDetourMin);
 
@@ -404,6 +410,57 @@ async function enrichFuelPrices(places: Place[]): Promise<Place[]> {
       }
       if (place.name.includes('셀프')) {
         return { ...place, isSelfService: true };
+      }
+      return place;
+    });
+  } catch {
+    return places;
+  }
+}
+
+/**
+ * 전기차 충전소 정보 보강 - 한국환경공단 API 캐시에서 매칭
+ */
+async function enrichEvChargerInfo(places: Place[]): Promise<Place[]> {
+  if (places.length === 0) return places;
+
+  try {
+    const res = await fetch('/api/ev-match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stations: places.map(p => ({
+          name: p.name,
+          lat: p.lat,
+          lng: p.lng,
+          address: p.address,
+          roadAddress: p.roadAddress,
+        })),
+      }),
+    });
+    if (!res.ok) return places;
+    const data = await res.json();
+    const results: (({
+      chargerTypes: string[];
+      maxOutput: number;
+      operator: string;
+      chargerCount: number;
+      useTime: string;
+      parkingFree: boolean;
+    }) | null)[] = data.results || [];
+
+    return places.map((place, i) => {
+      const match = results[i];
+      if (match) {
+        return {
+          ...place,
+          evChargerTypes: match.chargerTypes,
+          evMaxOutput: match.maxOutput,
+          evOperator: match.operator,
+          evChargerCount: match.chargerCount,
+          evUseTime: match.useTime,
+          evParkingFree: match.parkingFree,
+        };
       }
       return place;
     });

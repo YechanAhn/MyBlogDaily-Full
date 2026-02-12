@@ -9,6 +9,7 @@ import PlaceDetail from '@/components/PlaceDetail';
 import RoutePanel from '@/components/RoutePanel';
 import MealSearch from '@/components/MealSearch';
 import KakaoAdFit from '@/components/KakaoAdFit';
+import ChargerTypeFilter, { filterByChargerType } from '@/components/ChargerTypeFilter';
 import { LatLng, Place, RouteResult, RouteSection, SearchCategory, AddressResult, AppView, MealSearchMode, NaviApp } from '@/lib/types';
 import { parseVertexes } from '@/lib/polyline';
 import { searchAlongRoute } from '@/lib/searchAlongRoute';
@@ -44,6 +45,7 @@ export default function HomePage() {
   const [hasSearched, setHasSearched] = useState(false); // 장소 검색 여부
   const [pendingCategory, setPendingCategory] = useState<SearchCategory | null>(null);
   const [mealLocation, setMealLocation] = useState<LatLng | null>(null);
+  const [evChargerFilter, setEvChargerFilter] = useState<string[]>([]);
 
   const cardListRef = useRef<HTMLDivElement>(null);
   const searchRequestRef = useRef(0);
@@ -291,6 +293,7 @@ export default function HomePage() {
   const handleCategoryChange = (cat: SearchCategory) => {
     setCategory(cat);
     setShowMealSearch(false);
+    setEvChargerFilter([]);
     if (cat === 'custom') {
       setShowCustomInput(true);
       if (!route?.polyline) {
@@ -416,7 +419,7 @@ export default function HomePage() {
 
   // 카드 스크롤 핸들러
   const handleCardScroll = () => {
-    if (!cardListRef.current || !places.length) return;
+    if (!cardListRef.current || !displayPlaces.length) return;
     const container = cardListRef.current;
     const containerCenter = container.scrollLeft + container.clientWidth / 2;
 
@@ -434,7 +437,7 @@ export default function HomePage() {
       }
     });
 
-    const centerPlace = closestPlaceId ? places.find(p => p.id === closestPlaceId) : null;
+    const centerPlace = closestPlaceId ? displayPlaces.find(p => p.id === closestPlaceId) : null;
     if (centerPlace && centerPlace.id !== selectedPlace?.id) {
       setSelectedPlace(centerPlace);
       setMapCenter({ lat: centerPlace.lat, lng: centerPlace.lng });
@@ -453,13 +456,20 @@ export default function HomePage() {
 
   const isRouteView = view === 'route' || view === 'detail';
 
+  // 전기차 충전기 필터 적용
+  const displayPlaces = (() => {
+    if (category !== 'ev' || evChargerFilter.length === 0) return places;
+    const mask = filterByChargerType(places, evChargerFilter);
+    return places.filter((_, i) => mask[i]);
+  })();
+
   return (
     <div className="h-[100dvh] flex flex-col relative overflow-hidden bg-gray-100">
       {/* 전체 화면 지도 */}
       <div className="absolute inset-0 z-0">
         <KakaoMap
           polyline={route?.polyline}
-          places={places}
+          places={displayPlaces}
           selectedPlace={selectedPlace}
           mealLocation={mealLocation}
           onPlaceSelect={handlePlaceSelect}
@@ -536,6 +546,14 @@ export default function HomePage() {
                 검색
               </button>
             </div>
+          )}
+
+          {/* 전기차 충전기 타입 필터 */}
+          {category === 'ev' && hasSearched && !isLoading && (
+            <ChargerTypeFilter
+              selected={evChargerFilter}
+              onChange={setEvChargerFilter}
+            />
           )}
 
           {/* 식사 장소 찾기 버튼 */}
@@ -647,14 +665,14 @@ export default function HomePage() {
         ) : (
           <>
             {/* 장소 카드 리스트 */}
-            {isRouteView && places.length > 0 && (
+            {isRouteView && displayPlaces.length > 0 && (
               <div className="pb-[env(safe-area-inset-bottom)] pb-4">
                 <div
                   ref={cardListRef}
                   className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory px-4 pb-2"
                   onScroll={handleCardScroll}
                 >
-                  {places.flatMap((place, idx) => {
+                  {displayPlaces.flatMap((place, idx) => {
                     const items = [
                       <PlaceCard
                         key={place.id}
@@ -664,7 +682,7 @@ export default function HomePage() {
                       />,
                     ];
                     // 5번째 카드마다 250x250 광고 삽입
-                    if (idx > 0 && (idx + 1) % 5 === 0 && idx < places.length - 1) {
+                    if (idx > 0 && (idx + 1) % 5 === 0 && idx < displayPlaces.length - 1) {
                       items.push(
                         <div key={`ad-${idx}`} className="flex-shrink-0 snap-center flex items-center">
                           <KakaoAdFit unit="DAN-k5zILat6MLLziW0G" width={250} height={250} />
@@ -678,11 +696,20 @@ export default function HomePage() {
             )}
 
             {/* 결과 없음 - 검색한 적이 있을 때만 표시 */}
-            {isRouteView && !isLoading && hasSearched && places.length === 0 && (
+            {isRouteView && !isLoading && hasSearched && displayPlaces.length === 0 && (
               <div className="mx-4 mb-4 bg-white rounded-2xl shadow-lg p-6 text-center">
                 <p className="text-2xl mb-2">🔍</p>
-                <p className="text-sm text-gray-600 font-medium">경로 주변에 결과가 없습니다</p>
-                <p className="text-xs text-gray-400 mt-1">다른 카테고리를 선택해보세요</p>
+                {category === 'ev' && evChargerFilter.length > 0 && places.length > 0 ? (
+                  <>
+                    <p className="text-sm text-gray-600 font-medium">선택한 충전 타입의 충전소가 없습니다</p>
+                    <p className="text-xs text-gray-400 mt-1">필터를 변경해보세요</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-600 font-medium">경로 주변에 결과가 없습니다</p>
+                    <p className="text-xs text-gray-400 mt-1">다른 카테고리를 선택해보세요</p>
+                  </>
+                )}
               </div>
             )}
 

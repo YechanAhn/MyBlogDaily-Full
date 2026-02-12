@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Place, LatLng, NaviApp } from '@/lib/types';
+import { Place, LatLng, NaviApp, CHARGER_TYPE_MAP } from '@/lib/types';
 import { openNaviApp, getNaviInfo } from '@/lib/deeplink';
 
 interface PlaceDetailProps {
@@ -156,7 +156,7 @@ export default function PlaceDetail({
         </div>
 
         {/* Stats */}
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
           {place.rating !== undefined && place.rating !== null && (
             <div className="flex items-center gap-1">
               <span className="text-amber-500 font-bold text-sm">★ {place.rating.toFixed(1)}</span>
@@ -175,6 +175,60 @@ export default function PlaceDetail({
             <span className="text-sm font-bold text-red-500">{place.fuelPrice.toLocaleString()}원/L</span>
           )}
         </div>
+
+        {/* 전기차 충전기 상세 정보 */}
+        {place.evChargerTypes && place.evChargerTypes.length > 0 && (
+          <div className="mb-4 p-3 bg-green-50 rounded-xl">
+            <p className="text-xs font-semibold text-green-800 mb-2">충전기 정보</p>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {place.evChargerTypes.map(code => {
+                const name = CHARGER_TYPE_MAP[code] || code;
+                const isDC = name.includes('DC');
+                return (
+                  <span
+                    key={code}
+                    className={`text-xs px-2 py-1 rounded-lg font-medium ${
+                      isDC ? 'bg-green-100 text-green-700 ring-1 ring-green-200' : 'bg-blue-100 text-blue-700 ring-1 ring-blue-200'
+                    }`}
+                  >
+                    {isDC ? '⚡' : '🔌'} {name}
+                  </span>
+                );
+              })}
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {place.evMaxOutput ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">충전 용량</span>
+                  <span className="font-bold text-green-700">{place.evMaxOutput}kW</span>
+                </div>
+              ) : null}
+              {place.evChargerCount ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">충전기 수</span>
+                  <span className="font-bold text-gray-700">{place.evChargerCount}기</span>
+                </div>
+              ) : null}
+              {place.evOperator && (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">운영</span>
+                  <span className="font-medium text-gray-700">{place.evOperator}</span>
+                </div>
+              )}
+              {place.evParkingFree !== undefined && (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">주차</span>
+                  <span className={`font-medium ${place.evParkingFree ? 'text-emerald-600' : 'text-orange-600'}`}>
+                    {place.evParkingFree ? '무료' : '유료'}
+                  </span>
+                </div>
+              )}
+            </div>
+            {place.evUseTime && (
+              <p className="text-[11px] text-gray-500 mt-2">이용시간: {place.evUseTime}</p>
+            )}
+          </div>
+        )}
 
         {/* 베스트 리뷰 */}
         {reviews.length > 0 && (

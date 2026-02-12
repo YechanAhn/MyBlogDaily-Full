@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Place } from '@/lib/types';
+import { Place, CHARGER_TYPE_MAP } from '@/lib/types';
 
 interface PlaceCardProps {
   place: Place;
@@ -122,6 +122,36 @@ export default function PlaceCard({ place, isSelected, onClick }: PlaceCardProps
             {place.isSelfService && (
               <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-medium">셀프</span>
             )}
+          </div>
+        ) : place.evChargerTypes && place.evChargerTypes.length > 0 ? (
+          <div className="mb-2">
+            <div className="flex items-center gap-1 flex-wrap mb-1">
+              {place.evChargerTypes.map(code => {
+                const name = CHARGER_TYPE_MAP[code] || code;
+                const isDC = name.includes('DC');
+                return (
+                  <span
+                    key={code}
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                      isDC ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'
+                    }`}
+                  >
+                    {name}
+                  </span>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-1.5">
+              {place.evMaxOutput ? (
+                <span className="text-[12px] font-bold text-green-600">{place.evMaxOutput}kW</span>
+              ) : null}
+              {place.evOperator && (
+                <span className="text-[10px] text-gray-400">{place.evOperator}</span>
+              )}
+              {place.evParkingFree && (
+                <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1 py-0.5 rounded font-medium">무료주차</span>
+              )}
+            </div>
           </div>
         ) : (
           <p className="text-[11px] text-gray-400 mb-2">{place.category}</p>
