@@ -53,14 +53,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/** 상태 일시 문자열 파싱 (YYYYMMDDHHmmss) */
+/** 상태 일시 문자열 파싱 (YYYYMMDDHHmmss, KST) */
 function parseStatusDate(dateStr: string): Date | null {
   if (!dateStr || dateStr.length < 14) return null;
-  const y = parseInt(dateStr.slice(0, 4));
-  const m = parseInt(dateStr.slice(4, 6)) - 1;
-  const d = parseInt(dateStr.slice(6, 8));
-  const h = parseInt(dateStr.slice(8, 10));
-  const min = parseInt(dateStr.slice(10, 12));
-  const s = parseInt(dateStr.slice(12, 14));
-  return new Date(y, m, d, h, min, s);
+  // data.go.kr 상태 API는 KST(UTC+9) 기준 → ISO 문자열로 변환
+  const iso = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}T${dateStr.slice(8, 10)}:${dateStr.slice(10, 12)}:${dateStr.slice(12, 14)}+09:00`;
+  const date = new Date(iso);
+  return isNaN(date.getTime()) ? null : date;
 }
