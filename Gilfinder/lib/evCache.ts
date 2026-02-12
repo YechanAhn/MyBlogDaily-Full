@@ -407,7 +407,7 @@ export async function refreshEvCache(
           for (let page = 2; page <= totalPages; page++) {
             apiCalls++;
             const extra = await fetchRegion(apiKey, code, page, 9999);
-            chargers.push(...extra.items.map(parseChargerItem));
+            for (const item of extra.items) chargers.push(parseChargerItem(item));
             await new Promise(r => setTimeout(r, 300));
           }
         }
@@ -423,7 +423,7 @@ export async function refreshEvCache(
 
     const results = await Promise.all(promises);
     for (const chargers of results) {
-      allChargers.push(...chargers);
+      for (const c of chargers) allChargers.push(c);
     }
 
     if (i + 3 < ZCODES.length) {
