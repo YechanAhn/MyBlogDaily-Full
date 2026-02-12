@@ -151,8 +151,8 @@ async function fetchRegion(
   pageNo: number = 1,
   numOfRows: number = 9999
 ): Promise<{ items: Record<string, string>[]; totalCount: number }> {
-  const encodedKey = encodeURIComponent(apiKey);
-  const url = `${EV_API_BASE}?ServiceKey=${encodedKey}&zcode=${zcode}&pageNo=${pageNo}&numOfRows=${numOfRows}`;
+  // Encoding 키(이미 URL 인코딩됨)를 그대로 사용
+  const url = `${EV_API_BASE}?ServiceKey=${apiKey}&zcode=${zcode}&pageNo=${pageNo}&numOfRows=${numOfRows}`;
 
   const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
   if (!res.ok) {
