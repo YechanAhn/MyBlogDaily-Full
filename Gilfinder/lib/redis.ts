@@ -1,0 +1,76 @@
+import { Redis } from '@upstash/redis';
+
+// Upstash Redis 클라이언트 (환경변수 없으면 null)
+let redis: Redis | null = null;
+
+function getRedis(): Redis | null {
+  if (redis) return redis;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  try {
+    redis = new Redis({ url, token });
+    return redis;
+  } catch (err) {
+    console.error('Redis 연결 실패:', err);
+    return null;
+  }
+}
+
+/**
+ * 캐시 조회 - 실패 시 null 반환 (graceful fallback)
+ */
+export async function cacheGet<T>(key: string): Promise<T | null> {
+  try {
+    const client = getRedis();
+    if (!client) return null;
+    const data = await client.get<T>(key);
+    return data ?? null;
+  } catch (err) {
+    console.error('Redis GET 실패:', err);
+    return null;
+  }
+}
+
+/**
+ * 캐시 저장 - TTL은 초 단위, 실패해도 무시
+ */
+export async function cacheSet<T>(key: string, data: T, ttlSeconds: number): Promise<void> {
+  try {
+    const client = getRedis();
+    if (!client) return;
+    await client.set(key, data, { ex: ttlSeconds });
+  } catch (err) {
+    console.error('Redis SET 실패:', err);
+  }
+}
+
+/**
+ * 에러 카운터 증가 (health monitoring 용)
+ */
+export async function incrementErrorCount(apiName: string): Promise<void> {
+  try {
+    const client = getRedis();
+    if (!client) return;
+    const key = `errors:${apiName}:${new Date().toISOString().slice(0, 13)}`;
+    await client.incr(key);
+    await client.expire(key, 86400);
+  } catch {
+    // 에러 추적 실패는 무시
+  }
+}
+
+/**
+ * 에러 카운터 조회
+ */
+export async function getErrorCount(apiName: string): Promise<number> {
+  try {
+    const client = getRedis();
+    if (!client) return 0;
+    const key = `errors:${apiName}:${new Date().toISOString().slice(0, 13)}`;
+    const count = await client.get<number>(key);
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}

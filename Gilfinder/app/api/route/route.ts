@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cacheGet, cacheSet, incrementErrorCount } from '@/lib/redis';
 
 const parseCoord = (value: string) => {
   const [lngStr, latStr] = value.split(',');
@@ -8,6 +9,9 @@ const parseCoord = (value: string) => {
   if (lng < 124 || lng > 132 || lat < 33 || lat > 39) return null;
   return { lng, lat };
 };
+
+// 좌표 반올림 헬퍼 (캐싱용)
+const roundCoord = (c: string) => c.split(',').map(v => parseFloat(v).toFixed(4)).join(',');
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -45,6 +49,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // 캐시 조회
+    const cacheKey = `route:${roundCoord(origin)}:${roundCoord(destination)}`;
+    const cached = await cacheGet(cacheKey);
+    if (cached) return NextResponse.json(cached);
+
     const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${origin}&destination=${destination}&priority=RECOMMEND`;
 
     const res = await fetch(url, {
@@ -63,9 +72,11 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await res.json();
+    cacheSet(cacheKey, data, 1800); // 30분 캐시
     return NextResponse.json(data);
   } catch (error) {
     console.error('Route API error:', error);
+    incrementErrorCount('route'); // 에러 추적
     return NextResponse.json(
       { error: '경로 검색 중 오류가 발생했습니다.' },
       { status: 500 }

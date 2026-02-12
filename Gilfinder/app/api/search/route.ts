@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cacheGet, cacheSet, incrementErrorCount } from '@/lib/redis';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -35,6 +36,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // 캐시 키 생성 (좌표는 소수점 3자리로 반올림)
+    const lat3 = y ? parseFloat(y).toFixed(3) : '_';
+    const lng3 = x ? parseFloat(x).toFixed(3) : '_';
+    const cacheKey = `search:${query || '_'}:${categoryGroupCode || '_'}:${lat3}:${lng3}:${radius || '_'}:${mode || '_'}`;
+
+    // 캐시 조회
+    const cached = await cacheGet(cacheKey);
+    if (cached) return NextResponse.json(cached);
+
     const safeMode = mode === 'address' || mode === 'category' ? mode : 'keyword';
     const safeSort = sort === 'distance' ? 'distance' : 'accuracy';
     const pageNum = Math.min(Math.max(parseInt(page, 10) || 1, 1), 45);
@@ -52,7 +62,9 @@ export async function GET(request: NextRequest) {
       if (!res.ok) {
         return NextResponse.json({ error: '검색 중 오류가 발생했습니다.' }, { status: res.status });
       }
-      return NextResponse.json(await res.json());
+      const data = await res.json();
+      cacheSet(cacheKey, data, 7200); // 2시간 캐시
+      return NextResponse.json(data);
     }
 
     // Category-only search (no keyword needed)
@@ -73,7 +85,9 @@ export async function GET(request: NextRequest) {
       if (!res.ok) {
         return NextResponse.json({ error: '검색 중 오류가 발생했습니다.' }, { status: res.status });
       }
-      return NextResponse.json(await res.json());
+      const data = await res.json();
+      cacheSet(cacheKey, data, 7200); // 2시간 캐시
+      return NextResponse.json(data);
     }
 
     // Standard keyword search with location
@@ -91,9 +105,12 @@ export async function GET(request: NextRequest) {
     if (!res.ok) {
       return NextResponse.json({ error: '검색 중 오류가 발생했습니다.' }, { status: res.status });
     }
-    return NextResponse.json(await res.json());
+    const data = await res.json();
+    cacheSet(cacheKey, data, 7200); // 2시간 캐시
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Search API error:', error);
+    incrementErrorCount('search'); // 에러 추적
     return NextResponse.json({ error: '검색 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }

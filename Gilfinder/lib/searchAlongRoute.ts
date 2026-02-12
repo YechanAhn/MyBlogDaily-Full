@@ -6,15 +6,13 @@ const CATEGORY_MAP: Record<SearchCategory, { keyword: string; code?: string }> =
   coffee: { keyword: '', code: 'CE7' },
   fuel: { keyword: '', code: 'OL7' },
   food: { keyword: '', code: 'FD6' },
-  convenience: { keyword: '', code: 'CS2' },
   rest: { keyword: '고속도로휴게소' },
   ev: { keyword: '전기차충전소' },
-  toilet: { keyword: '공중화장실' },
   custom: { keyword: '' },
 };
 
 // 경유시간만으로 정렬하는 카테고리 (평점 무관)
-const TIME_ONLY_CATEGORIES = new Set<SearchCategory>(['rest', 'ev', 'toilet', 'fuel', 'convenience']);
+const TIME_ONLY_CATEGORIES = new Set<SearchCategory>(['rest', 'ev', 'fuel']);
 
 // 평점+경유시간 복합 점수 (지수 감쇠: score = rating × e^(-detour/12))
 function computeRankScore(place: Place, category: SearchCategory): number {
@@ -104,10 +102,28 @@ export async function searchAlongRoute(
   const numSegments = 10;
   const segPerCount = (category === 'food' || category === 'coffee') ? 5 : 3;
   const needsRanking = !TIME_ONLY_CATEGORIES.has(category) && category !== 'custom';
-  const candidates = selectBySegments(filtered, polyline, numSegments, segPerCount, category);
 
-  onProgress?.(72, '우회 시간 계산 중...');
-  let withDetour = await calculateDetourTimes(candidates, polyline, originalDuration);
+  let candidates: Place[];
+  let withDetour: Place[];
+
+  if (TIME_ONLY_CATEGORIES.has(category)) {
+    // TIME_ONLY: 경유시간을 먼저 계산한 뒤 세그먼트 선택
+    onProgress?.(70, `경유시간 계산 중... (0/${filtered.length})`);
+    const allWithDetour = await calculateDetourTimes(
+      filtered, polyline, originalDuration,
+      (done, total) => {
+        const pct = 70 + Math.round((done / total) * 12);
+        onProgress?.(pct, `경유시간 계산 중... (${done}/${total})`);
+      }
+    );
+    candidates = selectBySegments(allWithDetour, polyline, numSegments, segPerCount, category);
+    withDetour = candidates; // 이미 경유시간 계산 완료
+  } else {
+    // 맛집/카페/검색: 기존 흐름 (세그먼트 선택 후 경유시간 계산)
+    candidates = selectBySegments(filtered, polyline, numSegments, segPerCount, category);
+    onProgress?.(72, '우회 시간 계산 중...');
+    withDetour = await calculateDetourTimes(candidates, polyline, originalDuration);
+  }
 
   // 주유소 카테고리일 때 OPINET API로 가격 데이터 보강
   if (category === 'fuel') {
@@ -128,7 +144,7 @@ export async function searchAlongRoute(
     });
   }
 
-  // 경유시간만 카테고리 (휴게소, 충전소, 화장실 등): 경유시간순
+  // 경유시간만 카테고리 (휴게소, 충전소): 경유시간순
   if (TIME_ONLY_CATEGORIES.has(category)) {
     return results.sort((a, b) => a.detourMinutes - b.detourMinutes);
   }
@@ -227,12 +243,18 @@ function selectBySegments(
 
     if (segment.length === 0) continue;
 
-    // 거리와 리뷰 수를 모두 고려한 점수 기반 정렬
-    const distWeight = TIME_ONLY_CATEGORIES.has(category) ? 0.7 : 0;
-    const scored = segment.map(p => ({
-      ...p,
-      _score: p.distance * distWeight + (p.reviewCount ? -Math.log(p.reviewCount + 1) * 200 : 0),
-    }));
+    // 카테고리별 점수 기반 정렬
+    const scored = segment.map(p => {
+      if (TIME_ONLY_CATEGORIES.has(category)) {
+        // TIME_ONLY: 경유시간 기준 선택 (낮을수록 좋음)
+        return { ...p, _score: p.detourMinutes ?? p.distance * 0.7 };
+      }
+      // 맛집/카페: 리뷰 수 기반 인기도 반영
+      return {
+        ...p,
+        _score: (p.reviewCount ? -Math.log(p.reviewCount + 1) * 200 : 0),
+      };
+    });
     scored.sort((a, b) => a._score - b._score);
 
     // 세그먼트당 할당량만큼 선택
@@ -321,9 +343,11 @@ function findNearestSegmentInfo(
 async function calculateDetourTimes(
   places: Place[],
   polyline: LatLng[],
-  _originalDuration?: number
+  _originalDuration?: number,
+  onProgress?: (done: number, total: number) => void
 ): Promise<Place[]> {
-  return places.map(place => {
+  return places.map((place, idx) => {
+    onProgress?.(idx + 1, places.length);
     const segInfo = findNearestSegmentInfo(polyline, { lat: place.lat, lng: place.lng });
     const distMeters = segInfo.perpDistKm * 1000;
     // 도로 계수 1.4 적용, 평균 40km/h 가정, 왕복

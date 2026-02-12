@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cacheGet, cacheSet, incrementErrorCount } from '@/lib/redis';
 
 const toNumber = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -259,6 +260,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // 캐시 조회
+    const cacheKey = `place:${placeId}`;
+    const cached = await cacheGet(cacheKey);
+    if (cached) return NextResponse.json(cached);
+
     // 1차: 카카오 내부 API 시도 (평점/리뷰/영업시간 포함)
     let apiResult = await fetchKakaoPlaceAPI(placeId);
 
@@ -295,10 +301,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (apiResult) {
+      cacheSet(cacheKey, apiResult, 21600); // 6시간 캐시
       return NextResponse.json(apiResult);
     }
 
-    return NextResponse.json({
+    const fallbackResult = {
       id: placeId,
       imageUrl: null,
       title: null,
@@ -308,9 +315,12 @@ export async function GET(request: NextRequest) {
       openHours: null,
       ratingSource: null,
       reviews: [],
-    });
+    };
+    cacheSet(cacheKey, fallbackResult, 21600); // 6시간 캐시
+    return NextResponse.json(fallbackResult);
   } catch (error) {
     console.error('Place detail API error:', error);
+    incrementErrorCount('place-detail'); // 에러 추적
     return NextResponse.json(
       { error: '장소 정보 조회 중 오류가 발생했습니다.' },
       { status: 500 }

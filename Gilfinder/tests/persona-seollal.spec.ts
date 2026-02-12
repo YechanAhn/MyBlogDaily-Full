@@ -30,7 +30,7 @@ const SEOLLAL_ROUTES = [
 ] as const;
 
 // 카테고리 칩 라벨 (CategoryChips CATEGORIES 순서)
-const ALL_CATEGORIES = ['검색', '주유소', '휴게소', '맛집', '카페', '충전소', '화장실', '편의점'] as const;
+const ALL_CATEGORIES = ['검색', '전기차', '주유소', '맛집', '카페', '휴게소'] as const;
 
 // ============================================================================
 // 헬퍼 함수
@@ -365,7 +365,7 @@ test.describe('Section B: UI 플로우 테스트', () => {
     await expect(routeInfo.first()).toBeVisible({ timeout: 5000 });
   });
 
-  test('카테고리 칩: 7개 전부 표시 확인', async ({ page }) => {
+  test('카테고리 칩: 6개 전부 표시 확인', async ({ page }) => {
     test.setTimeout(30000);
 
     await page.goto('/');
@@ -377,7 +377,7 @@ test.describe('Section B: UI 플로우 테스트', () => {
       return;
     }
 
-    // 7개 카테고리 칩 모두 확인
+    // 6개 카테고리 칩 모두 확인
     for (const label of ALL_CATEGORIES) {
       const chip = page.locator('button').filter({ hasText: label }).first();
       await expect(chip).toBeVisible({ timeout: 3000 });
@@ -510,26 +510,6 @@ test.describe('Section B: UI 플로우 테스트', () => {
     expect(nameText).toContain('휴게소');
   });
 
-  test('편의점 카테고리: 장소 카드 표시', async ({ page }) => {
-    test.setTimeout(45000);
-
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-
-    const success = await searchAndSelectDestination(page, '대전');
-    if (!success) {
-      test.skip(true, 'Kakao API 접근 불가');
-      return;
-    }
-
-    const cardCount = await clickCategoryAndWaitForCards(page, '편의점');
-    if (cardCount === 0) {
-      test.skip(true, '편의점 검색 결과 없음');
-      return;
-    }
-    expect(cardCount).toBeGreaterThan(0);
-  });
-
   test('전기차충전소 카테고리: 결과 확인', async ({ page }) => {
     test.setTimeout(45000);
 
@@ -542,7 +522,7 @@ test.describe('Section B: UI 플로우 테스트', () => {
       return;
     }
 
-    const cardCount = await clickCategoryAndWaitForCards(page, '충전소');
+    const cardCount = await clickCategoryAndWaitForCards(page, '전기차');
     expect(cardCount).toBeGreaterThanOrEqual(0);
   });
 

@@ -361,7 +361,6 @@ test.describe('카테고리 필터', () => {
       { code: 'CE7', keyword: '카페' },
       { code: 'OL7', keyword: '주유소' },
       { code: 'FD6', keyword: '맛집' },
-      { code: 'CS2', keyword: '편의점' },
     ];
 
     for (const cat of categories) {
@@ -382,10 +381,8 @@ test.describe('카테고리 필터', () => {
         coffee: { keyword: '', code: 'CE7' },
         fuel: { keyword: '', code: 'OL7' },
         food: { keyword: '', code: 'FD6' },
-        convenience: { keyword: '', code: 'CS2' },
         rest: { keyword: '고속도로휴게소' },
         ev: { keyword: '전기차충전소' },
-        toilet: { keyword: '공중화장실' },
         custom: { keyword: '' },
       };
       return CATEGORY_MAP;
@@ -398,12 +395,9 @@ test.describe('카테고리 필터', () => {
     expect(result.fuel.code).toBe('OL7');
     expect(result.food.keyword).toBe('');
     expect(result.food.code).toBe('FD6');
-    expect(result.convenience.keyword).toBe('');
-    expect(result.convenience.code).toBe('CS2');
     // 카테고리 코드 없는 항목은 키워드 검색 사용
     expect(result.rest.keyword).toBe('고속도로휴게소');
     expect(result.ev.keyword).toBe('전기차충전소');
-    expect(result.toilet.keyword).toBe('공중화장실');
   });
 });
 

@@ -42,6 +42,7 @@ export default function HomePage() {
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [showMealSearch, setShowMealSearch] = useState(false);
   const [hasSearched, setHasSearched] = useState(false); // 장소 검색 여부
+  const [pendingCategory, setPendingCategory] = useState<SearchCategory | null>(null);
   const [mealLocation, setMealLocation] = useState<LatLng | null>(null);
 
   const cardListRef = useRef<HTMLDivElement>(null);
@@ -146,6 +147,15 @@ export default function HomePage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [destCoord]);
+
+  // 경로 설정 시 대기 중인 카테고리 자동 검색
+  useEffect(() => {
+    if (route?.polyline && pendingCategory && pendingCategory !== 'custom') {
+      searchPlaces(route.polyline, pendingCategory, route.totalDuration);
+      setPendingCategory(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route]);
 
   // 평점 프리로드 함수
   const preloadRatings = async (
@@ -283,11 +293,17 @@ export default function HomePage() {
     setShowMealSearch(false);
     if (cat === 'custom') {
       setShowCustomInput(true);
+      if (!route?.polyline) {
+        setPendingCategory('custom');
+      }
       return;
     }
     setShowCustomInput(false);
     if (route?.polyline) {
       searchPlaces(route.polyline, cat, route.totalDuration);
+    } else {
+      // 경로 없음 - 경로 설정 시 자동 검색되도록 저장
+      setPendingCategory(cat);
     }
   };
 
@@ -454,11 +470,11 @@ export default function HomePage() {
       </div>
 
       {/* 앱 이름 */}
-      {!isRouteView && view !== 'search' && (
-        <div className="relative z-10 pt-[env(safe-area-inset-top)] px-4 pt-3 pb-1">
-          <div className="inline-flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-xl px-3 py-1.5 shadow-md">
-            <span className="text-xl">🚗</span>
-            <h1 className="text-lg font-extrabold tracking-tight">
+      {view !== 'search' && (
+        <div className={`relative z-10 px-4 ${isRouteView ? 'pt-[env(safe-area-inset-top)] pt-1 pb-0' : 'pt-[env(safe-area-inset-top)] pt-3 pb-1'}`}>
+          <div className={`inline-flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-xl shadow-md ${isRouteView ? 'px-2 py-1' : 'px-3 py-1.5'}`}>
+            <span className={isRouteView ? 'text-sm' : 'text-xl'}>🚗</span>
+            <h1 className={`font-extrabold tracking-tight ${isRouteView ? 'text-sm' : 'text-lg'}`}>
               <span className="text-blue-600">가는</span><span className="text-gray-800">길에</span>
             </h1>
           </div>
@@ -466,7 +482,7 @@ export default function HomePage() {
       )}
 
       {/* 상단 검색 영역 */}
-      <div className={`relative z-10 px-4 ${!isRouteView && view !== 'search' ? 'pt-1' : 'pt-[env(safe-area-inset-top)] pt-3'}`}>
+      <div className={`relative z-10 px-4 ${view !== 'search' ? 'pt-1' : 'pt-[env(safe-area-inset-top)] pt-3'}`}>
         {view === 'search' ? (
           <SearchBar
             placeholder={searchTarget === 'dest' ? '도착지를 검색하세요' : '출발지를 검색하세요'}
@@ -493,7 +509,7 @@ export default function HomePage() {
       </div>
 
       {/* 카테고리 칩 */}
-      {isRouteView && !showDetail && (
+      {view !== 'search' && !showDetail && (
         <div className="relative z-10 mt-2">
           <CategoryChips
             value={category}
