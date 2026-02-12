@@ -4,15 +4,17 @@
  * 전략:
  * - 한국환경공단 전기자동차 충전소 정보 API 활용
  * - 지역코드(zcode)별로 데이터 조회, 충전소(statId) 단위로 집계
- * - 서버 메모리 캐시 + /tmp 파일 백업 (Vercel cold start 대비)
+ * - 캐시 우선순위: 메모리 -> Redis(지역별 분할) -> /tmp 파일 -> null
+ * - Redis에 지역별 분할 저장 (Upstash 1MB 제한 대응)
  * - 매일 1회 갱신 (충전기 타입/위치는 자주 변하지 않음)
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { cacheGet, cacheSet, cacheMGet } from './redis';
 
 // ===================== API 응답 파싱 =====================
 
-/** XML 응답에서 <item> 목록 추출 (split 기반 — 대용량 XML에서 스택 오버플로우 방지) */
+/** XML 응답에서 <item> 목록 추출 (split 기반 -- 대용량 XML에서 스택 오버플로우 방지) */
 function parseXmlItems(xml: string): Record<string, string>[] {
   const items: Record<string, string>[] = [];
   const parts = xml.split('<item>');
@@ -61,6 +63,12 @@ interface EvCache {
   updatedAt: number;     // Unix timestamp (ms)
 }
 
+/** Redis 메타데이터 (지역별 분할 저장 시 사용) */
+interface EvCacheMeta {
+  updatedAt: number;     // Unix timestamp (ms)
+  zcodes: string[];      // 저장된 지역코드 목록
+}
+
 // ===================== 지역 코드 =====================
 
 const ZCODES: { code: string; name: string }[] = [
@@ -82,6 +90,11 @@ const ZCODES: { code: string; name: string }[] = [
   { code: '48', name: '경남' },
   { code: '50', name: '제주' },
 ];
+
+// Redis 키 프리픽스
+const REDIS_META_KEY = 'ev:meta';
+const REDIS_REGION_PREFIX = 'ev:';
+const REDIS_TTL = 90000; // 25시간 (초 단위)
 
 /** 주소에서 지역코드 추출 */
 export function getZcodeFromAddress(address: string): string | null {
@@ -105,11 +118,44 @@ let memoryCache: EvCache | null = null;
 const CACHE_FILE = '/tmp/ontheway-ev-cache.json';
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24시간
 
-/** 캐시 읽기 (메모리 → 파일 → null) */
-export function getEvCache(): EvCache | null {
+/** Redis에서 특정 지역들의 충전소 데이터 로드 */
+async function loadRegionsFromRedis(zcodes: string[]): Promise<EvStation[]> {
+  if (zcodes.length === 0) return [];
+  const keys = zcodes.map(z => `${REDIS_REGION_PREFIX}${z}`);
+  const results = await cacheMGet<EvStation[]>(keys);
+  const stations: EvStation[] = [];
+  for (const regionStations of results) {
+    if (regionStations && Array.isArray(regionStations)) {
+      for (const s of regionStations) stations.push(s);
+    }
+  }
+  return stations;
+}
+
+/** 캐시 읽기 (메모리 -> Redis -> /tmp 파일 -> null) */
+export async function getEvCache(): Promise<EvCache | null> {
+  // 1. 메모리 캐시
   if (memoryCache && Date.now() - memoryCache.updatedAt < CACHE_TTL) {
     return memoryCache;
   }
+
+  // 2. Redis 캐시 (지역별 분할)
+  try {
+    const meta = await cacheGet<EvCacheMeta>(REDIS_META_KEY);
+    if (meta && Date.now() - meta.updatedAt < CACHE_TTL && meta.zcodes?.length > 0) {
+      const stations = await loadRegionsFromRedis(meta.zcodes);
+      if (stations.length > 0) {
+        const cache: EvCache = { stations, updatedAt: meta.updatedAt };
+        memoryCache = cache;
+        console.log(`[EvCache] Redis에서 ${stations.length}개 충전소 로드 (${meta.zcodes.length}개 지역)`);
+        return cache;
+      }
+    }
+  } catch {
+    // Redis 실패 시 /tmp 폴백
+  }
+
+  // 3. /tmp 파일 백업
   try {
     if (existsSync(CACHE_FILE)) {
       const data = JSON.parse(readFileSync(CACHE_FILE, 'utf-8'));
@@ -121,17 +167,43 @@ export function getEvCache(): EvCache | null {
   } catch {
     // 파일 읽기 실패 무시
   }
+
   return null;
 }
 
+/** Redis에서 특정 지역만 로드 (부분 조회용) */
+export async function getEvCacheForRegions(zcodes: string[]): Promise<EvStation[]> {
+  // 1. 메모리 캐시에서 해당 지역 필터링
+  if (memoryCache && Date.now() - memoryCache.updatedAt < CACHE_TTL) {
+    const zcodeSet = new Set(zcodes);
+    return memoryCache.stations.filter(s => zcodeSet.has(s.zcode));
+  }
+
+  // 2. Redis에서 필요한 지역만 로드
+  try {
+    const meta = await cacheGet<EvCacheMeta>(REDIS_META_KEY);
+    if (meta && Date.now() - meta.updatedAt < CACHE_TTL) {
+      // 요청 지역 중 Redis에 있는 것만 필터
+      const available = zcodes.filter(z => meta.zcodes.includes(z));
+      if (available.length > 0) {
+        return await loadRegionsFromRedis(available);
+      }
+    }
+  } catch {
+    // Redis 실패 무시
+  }
+
+  return [];
+}
+
 /** 캐시 상태 확인 */
-export function getEvCacheStatus(): {
+export async function getEvCacheStatus(): Promise<{
   hasCachedData: boolean;
   stationCount: number;
   updatedAt: string | null;
   ageMinutes: number | null;
-} {
-  const cache = getEvCache();
+}> {
+  const cache = await getEvCache();
   if (!cache) {
     return { hasCachedData: false, stationCount: 0, updatedAt: null, ageMinutes: null };
   }
@@ -182,7 +254,7 @@ async function fetchRegion(
   return { items, totalCount };
 }
 
-/** API 응답 아이템 → 충전기 데이터로 변환 */
+/** API 응답 아이템 -> 충전기 데이터로 변환 */
 function parseChargerItem(item: Record<string, string>): {
   statId: string;
   statNm: string;
@@ -250,15 +322,45 @@ function aggregateByStation(chargers: ReturnType<typeof parseChargerItem>[]): Ev
   return Array.from(stationMap.values());
 }
 
+// ===================== Redis 저장 (지역별 분할) =====================
+
+/** 충전소 데이터를 지역별로 분할하여 Redis에 저장 */
+async function saveToRedis(stations: EvStation[]): Promise<void> {
+  // 지역별 분류
+  const byRegion = new Map<string, EvStation[]>();
+  for (const s of stations) {
+    const zcode = s.zcode || '00';
+    if (!byRegion.has(zcode)) byRegion.set(zcode, []);
+    byRegion.get(zcode)!.push(s);
+  }
+
+  const zcodes = Array.from(byRegion.keys());
+
+  // 지역별 병렬 저장
+  const savePromises = zcodes.map(zcode =>
+    cacheSet(`${REDIS_REGION_PREFIX}${zcode}`, byRegion.get(zcode)!, REDIS_TTL)
+  );
+
+  // 메타데이터 저장
+  const meta: EvCacheMeta = {
+    updatedAt: Date.now(),
+    zcodes,
+  };
+  savePromises.push(cacheSet(REDIS_META_KEY, meta, REDIS_TTL));
+
+  await Promise.all(savePromises);
+  console.log(`[EvCache] Redis에 ${zcodes.length}개 지역 저장 완료 (총 ${stations.length}개 충전소)`);
+}
+
 // ===================== 매칭 =====================
 
 /** 캐시에서 좌표 근처 충전소 검색 */
-function getNearbyStations(
+async function getNearbyStations(
   lat: number,
   lng: number,
   radiusKm: number
-): { station: EvStation; distanceKm: number }[] {
-  const cache = getEvCache();
+): Promise<{ station: EvStation; distanceKm: number }[]> {
+  const cache = await getEvCache();
   if (!cache) return [];
 
   const results: { station: EvStation; distanceKm: number }[] = [];
@@ -275,12 +377,12 @@ function getNearbyStations(
 }
 
 /** 충전소 이름+좌표로 매칭 */
-export function matchEvStation(
+export async function matchEvStation(
   placeName: string,
   placeLat: number,
   placeLng: number,
   placeAddress?: string
-): EvStation | null {
+): Promise<EvStation | null> {
   const normalize = (name: string) =>
     name
       .replace(/충전소|충전기|전기차|EV|ev|\(.*?\)|주차장|공용/gi, '')
@@ -290,7 +392,7 @@ export function matchEvStation(
       .toLowerCase();
 
   const normalized = normalize(placeName);
-  const nearby = getNearbyStations(placeLat, placeLng, 3);
+  const nearby = await getNearbyStations(placeLat, placeLng, 3);
   if (nearby.length === 0) return null;
 
   // 1차: 이름 매칭 + 거리
@@ -441,10 +543,18 @@ export async function refreshEvCache(
 
   memoryCache = cache;
 
+  // /tmp 파일 저장
   try {
     writeFileSync(CACHE_FILE, JSON.stringify(cache));
   } catch {
     // /tmp 외 쓰기 불가할 수 있음
+  }
+
+  // Redis에 지역별 분할 저장
+  try {
+    await saveToRedis(stations);
+  } catch (e) {
+    console.error('[EvCache] Redis 저장 실패:', e);
   }
 
   return {

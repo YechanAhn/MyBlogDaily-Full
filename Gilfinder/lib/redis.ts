@@ -46,6 +46,21 @@ export async function cacheSet<T>(key: string, data: T, ttlSeconds: number): Pro
 }
 
 /**
+ * 여러 키 일괄 조회 - mget (Upstash pipeline 사용)
+ */
+export async function cacheMGet<T>(keys: string[]): Promise<(T | null)[]> {
+  try {
+    const client = getRedis();
+    if (!client || keys.length === 0) return keys.map(() => null);
+    const results = await client.mget<(T | null)[]>(...keys);
+    return results.map(r => r ?? null);
+  } catch (err) {
+    console.error('Redis MGET 실패:', err);
+    return keys.map(() => null);
+  }
+}
+
+/**
  * 에러 카운터 증가 (health monitoring 용)
  */
 export async function incrementErrorCount(apiName: string): Promise<void> {

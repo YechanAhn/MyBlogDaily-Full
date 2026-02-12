@@ -16,7 +16,7 @@ import { refreshEvCache, getEvCacheStatus } from '@/lib/evCache';
  */
 
 export async function GET() {
-  const status = getEvCacheStatus();
+  const status = await getEvCacheStatus();
   return NextResponse.json(status);
 }
 

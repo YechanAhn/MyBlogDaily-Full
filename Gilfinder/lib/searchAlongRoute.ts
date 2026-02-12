@@ -128,14 +128,12 @@ export async function searchAlongRoute(
 
   // 주유소 카테고리일 때 OPINET API로 가격 데이터 보강
   if (category === 'fuel') {
-    onProgress?.(85, '주유소 가격 조회 중...');
-    withDetour = await enrichFuelPrices(withDetour);
+    withDetour = await enrichFuelPrices(withDetour, onProgress);
   }
 
   // 전기차 충전소일 때 충전기 타입 데이터 보강
   if (category === 'ev') {
-    onProgress?.(85, '충전기 정보 조회 중...');
-    withDetour = await enrichEvChargerInfo(withDetour);
+    withDetour = await enrichEvChargerInfo(withDetour, onProgress);
   }
 
   onProgress?.(92, '결과 정렬 중...');
@@ -378,8 +376,23 @@ function nearestRouteDistance(polyline: LatLng[], point: LatLng): number {
 /**
  * 주유소 가격 데이터 보강 - 서버 캐시에서 일괄 매칭
  */
-async function enrichFuelPrices(places: Place[]): Promise<Place[]> {
+async function enrichFuelPrices(
+  places: Place[],
+  onProgress?: (percent: number, text: string) => void
+): Promise<Place[]> {
   if (places.length === 0) return places;
+
+  onProgress?.(85, '주유소 가격 조회 중...');
+
+  // 3초 이상 걸리면 안내 메시지 표시
+  const slowTimer = setTimeout(() => {
+    onProgress?.(87, '주유소 데이터 로딩 중... (첫 로딩 시 시간이 걸릴 수 있습니다)');
+  }, 3000);
+
+  // 6초 이상
+  const verySlowTimer = setTimeout(() => {
+    onProgress?.(88, '주유소 데이터 준비 중... 잠시만 기다려주세요');
+  }, 6000);
 
   try {
     const res = await fetch('/api/fuel-match', {
@@ -395,6 +408,9 @@ async function enrichFuelPrices(places: Place[]): Promise<Place[]> {
         })),
       }),
     });
+    clearTimeout(slowTimer);
+    clearTimeout(verySlowTimer);
+
     if (!res.ok) return places;
     const data = await res.json();
     const prices: ({ price: number; prodcd: string; isSelf: boolean } | null)[] = data.prices || [];
@@ -415,6 +431,8 @@ async function enrichFuelPrices(places: Place[]): Promise<Place[]> {
       return place;
     });
   } catch {
+    clearTimeout(slowTimer);
+    clearTimeout(verySlowTimer);
     return places;
   }
 }
@@ -422,8 +440,23 @@ async function enrichFuelPrices(places: Place[]): Promise<Place[]> {
 /**
  * 전기차 충전소 정보 보강 - 한국환경공단 API 캐시에서 매칭
  */
-async function enrichEvChargerInfo(places: Place[]): Promise<Place[]> {
+async function enrichEvChargerInfo(
+  places: Place[],
+  onProgress?: (percent: number, text: string) => void
+): Promise<Place[]> {
   if (places.length === 0) return places;
+
+  onProgress?.(85, '충전기 정보 조회 중...');
+
+  // 3초 이상 걸리면 안내 메시지 표시
+  const slowTimer = setTimeout(() => {
+    onProgress?.(87, '충전소 데이터 로딩 중... (첫 로딩 시 시간이 걸릴 수 있습니다)');
+  }, 3000);
+
+  // 6초 이상
+  const verySlowTimer = setTimeout(() => {
+    onProgress?.(88, '충전소 데이터 준비 중... 잠시만 기다려주세요');
+  }, 6000);
 
   try {
     const res = await fetch('/api/ev-match', {
@@ -439,6 +472,9 @@ async function enrichEvChargerInfo(places: Place[]): Promise<Place[]> {
         })),
       }),
     });
+    clearTimeout(slowTimer);
+    clearTimeout(verySlowTimer);
+
     if (!res.ok) return places;
     const data = await res.json();
     const results: (({
@@ -466,6 +502,8 @@ async function enrichEvChargerInfo(places: Place[]): Promise<Place[]> {
       return place;
     });
   } catch {
+    clearTimeout(slowTimer);
+    clearTimeout(verySlowTimer);
     return places;
   }
 }
