@@ -11,11 +11,12 @@ interface CategoryChipsProps {
 
 const CATEGORIES: { key: SearchCategory; label: string; emoji?: string; icon?: string }[] = [
   { key: 'custom', label: '검색', emoji: '🔍' },
-  { key: 'dessert', label: '두쫀쿠', icon: '/icons/dubaicookie-48.png' },
   { key: 'fuel', label: '주유소', emoji: '⛽' },
   { key: 'rest', label: '휴게소', emoji: '🅿️' },
   { key: 'food', label: '맛집', emoji: '🍽️' },
   { key: 'coffee', label: '카페', emoji: '☕' },
+  { key: 'ev', label: '충전소', emoji: '🔌' },
+  { key: 'toilet', label: '화장실', emoji: '🚻' },
   { key: 'convenience', label: '편의점', emoji: '🏪' },
 ];
 

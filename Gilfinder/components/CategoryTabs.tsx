@@ -12,6 +12,8 @@ const CATEGORIES: { key: SearchCategory; label: string; emoji: string }[] = [
   { key: 'coffee', label: '커피', emoji: '☕' },
   { key: 'fuel', label: '주유소', emoji: '⛽' },
   { key: 'food', label: '맛집', emoji: '🍽️' },
+  { key: 'ev', label: '충전소', emoji: '🔌' },
+  { key: 'toilet', label: '화장실', emoji: '🚻' },
   { key: 'convenience', label: '편의점', emoji: '🏪' },
   { key: 'rest', label: '휴게소', emoji: '🅿️' },
   { key: 'custom', label: '직접입력', emoji: '🔍' },

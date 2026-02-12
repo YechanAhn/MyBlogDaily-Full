@@ -30,7 +30,7 @@ const SEOLLAL_ROUTES = [
 ] as const;
 
 // 카테고리 칩 라벨 (CategoryChips CATEGORIES 순서)
-const ALL_CATEGORIES = ['검색', '두쫀쿠', '주유소', '휴게소', '맛집', '카페', '편의점'] as const;
+const ALL_CATEGORIES = ['검색', '주유소', '휴게소', '맛집', '카페', '충전소', '화장실', '편의점'] as const;
 
 // ============================================================================
 // 헬퍼 함수
@@ -530,7 +530,7 @@ test.describe('Section B: UI 플로우 테스트', () => {
     expect(cardCount).toBeGreaterThan(0);
   });
 
-  test('두쫀쿠 카테고리: 결과 확인 (없을 수도 있음)', async ({ page }) => {
+  test('전기차충전소 카테고리: 결과 확인', async ({ page }) => {
     test.setTimeout(45000);
 
     await page.goto('/');
@@ -542,8 +542,7 @@ test.describe('Section B: UI 플로우 테스트', () => {
       return;
     }
 
-    const cardCount = await clickCategoryAndWaitForCards(page, '두쫀쿠');
-    // 두쫀쿠(디저트)는 결과가 없을 수 있음 - 에러 없이 처리되면 OK
+    const cardCount = await clickCategoryAndWaitForCards(page, '충전소');
     expect(cardCount).toBeGreaterThanOrEqual(0);
   });
 

@@ -64,7 +64,7 @@ export interface RouteResult {
   sections: RouteSection[];
 }
 
-export type SearchCategory = 'all' | 'coffee' | 'fuel' | 'food' | 'convenience' | 'rest' | 'custom' | 'dessert';
+export type SearchCategory = 'all' | 'coffee' | 'fuel' | 'food' | 'convenience' | 'rest' | 'custom' | 'ev' | 'toilet';
 
 export type FuelType = 'gasoline' | 'diesel' | 'lpg';
 

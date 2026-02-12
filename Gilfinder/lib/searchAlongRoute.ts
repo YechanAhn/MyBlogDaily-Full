@@ -8,9 +8,24 @@ const CATEGORY_MAP: Record<SearchCategory, { keyword: string; code?: string }> =
   food: { keyword: '', code: 'FD6' },
   convenience: { keyword: '', code: 'CS2' },
   rest: { keyword: '고속도로휴게소' },
-  dessert: { keyword: '두쫀쿠' },
+  ev: { keyword: '전기차충전소' },
+  toilet: { keyword: '공중화장실' },
   custom: { keyword: '' },
 };
+
+// 경유시간만으로 정렬하는 카테고리 (평점 무관)
+const TIME_ONLY_CATEGORIES = new Set<SearchCategory>(['rest', 'ev', 'toilet', 'fuel', 'convenience']);
+
+// 평점+경유시간 복합 점수 (지수 감쇠: score = rating × e^(-detour/12))
+function computeRankScore(place: Place, category: SearchCategory): number {
+  if (TIME_ONLY_CATEGORIES.has(category)) {
+    return place.detourMinutes;
+  }
+  // 맛집/카페 등: 평점이 있으면 지수 감쇠, 없으면 경유시간만
+  const rating = place.rating ?? 0;
+  if (rating <= 0) return 1000 + place.detourMinutes;
+  return -(rating * Math.exp(-place.detourMinutes / 12));
+}
 
 // 총 거리 기반 가변 파라미터
 function getRouteParams(totalDistanceKm: number): { radius: number; intervalKm: number } {
@@ -88,6 +103,7 @@ export async function searchAlongRoute(
 
   const numSegments = 10;
   const segPerCount = (category === 'food' || category === 'coffee') ? 5 : 3;
+  const needsRanking = !TIME_ONLY_CATEGORIES.has(category) && category !== 'custom';
   const candidates = selectBySegments(filtered, polyline, numSegments, segPerCount, category);
 
   onProgress?.(72, '우회 시간 계산 중...');
@@ -112,7 +128,17 @@ export async function searchAlongRoute(
     });
   }
 
-  return results;  // 세그먼트 순서 유지
+  // 경유시간만 카테고리 (휴게소, 충전소, 화장실 등): 경유시간순
+  if (TIME_ONLY_CATEGORIES.has(category)) {
+    return results.sort((a, b) => a.detourMinutes - b.detourMinutes);
+  }
+
+  // 맛집/카페: 평점 × 지수감쇠 복합 점수 정렬
+  if (needsRanking) {
+    return results.sort((a, b) => computeRankScore(a, category) - computeRankScore(b, category));
+  }
+
+  return results;
 }
 
 /**
@@ -202,8 +228,7 @@ function selectBySegments(
     if (segment.length === 0) continue;
 
     // 거리와 리뷰 수를 모두 고려한 점수 기반 정렬
-    // 거리가 가까울수록, 리뷰가 많을수록 점수가 낮음 (낮을수록 우선순위 높음)
-    const distWeight = (category === 'food' || category === 'coffee' || category === 'dessert') ? 0 : 0.7;
+    const distWeight = TIME_ONLY_CATEGORIES.has(category) ? 0.7 : 0;
     const scored = segment.map(p => ({
       ...p,
       _score: p.distance * distWeight + (p.reviewCount ? -Math.log(p.reviewCount + 1) * 200 : 0),
