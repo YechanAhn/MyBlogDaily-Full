@@ -352,16 +352,43 @@ async function calculateDetourTimes(
   _originalDuration?: number,
   onProgress?: (done: number, total: number) => void
 ): Promise<Place[]> {
+  // 총 경로 거리로 도로 유형 판단
+  const totalDistKm = calculateTotalDistance(polyline);
+
   return places.map((place, idx) => {
     onProgress?.(idx + 1, places.length);
     const segInfo = findNearestSegmentInfo(polyline, { lat: place.lat, lng: place.lng });
-    const distMeters = segInfo.perpDistKm * 1000;
-    // 도로 계수 1.4 적용, 평균 40km/h 가정, 왕복
-    const drivingMin = (distMeters * 1.4 / 1000) / 40 * 60 * 2;
-    // 반대편(왼쪽) + 경로 가까이(1km 이내) = 고속도로 반대편 → +15분 패널티
-    const wrongSidePenalty = (!segInfo.isRightSide && distMeters < 1000) ? 15 : 0;
-    const detourMinutes = Math.max(1, Math.round(drivingMin + 3 + wrongSidePenalty));
-    return { ...place, detourMinutes, detourDistance: Math.round(distMeters * 1.4 * 2) };
+    const perpDistKm = segInfo.perpDistKm;
+
+    // 도로 유형별 계수 조정
+    // 고속도로(50km+): IC 진출입 필요 → 직선거리 대비 4~6배
+    // 일반도로(50km 미만): 도로 우회 → 1.5~2배
+    let roadFactor: number;
+    let avgSpeedKmh: number;
+    let baseTimeMin: number; // IC 진출입/신호대기 기본 시간
+
+    if (totalDistKm > 50) {
+      // 고속도로 경로
+      roadFactor = perpDistKm < 0.3 ? 6.0 : perpDistKm < 1.0 ? 4.5 : 3.0;
+      avgSpeedKmh = 45;
+      baseTimeMin = 1;
+    } else {
+      // 일반도로 경로
+      roadFactor = 1.8;
+      avgSpeedKmh = 30;
+      baseTimeMin = 1;
+    }
+
+    const drivingKm = perpDistKm * roadFactor * 2; // 왕복
+    const drivingMin = (drivingKm / avgSpeedKmh) * 60;
+
+    // 반대편(왼쪽) + 경로 가까이(1km 이내) = 고속도로 반대편 → 추가 패널티
+    const wrongSidePenalty = (!segInfo.isRightSide && perpDistKm < 1) ? 15 : 0;
+
+    const detourMinutes = Math.max(1, Math.round(drivingMin + baseTimeMin + wrongSidePenalty));
+    const detourDistance = Math.round(drivingKm * 1000); // meters
+
+    return { ...place, detourMinutes, detourDistance };
   });
 }
 

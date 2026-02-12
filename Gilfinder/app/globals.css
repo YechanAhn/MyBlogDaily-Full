@@ -110,3 +110,14 @@ input[type="time"] {
 .animate-pulse-subtle {
   animation: pulse-subtle 2s ease-in-out infinite;
 }
+
+/* Pop-in animation for loading tips */
+@keyframes tip-pop {
+  0% { opacity: 0; transform: translateY(6px) scale(0.95); }
+  50% { opacity: 1; transform: translateY(-2px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-tip-pop {
+  animation: tip-pop 0.4s ease-out;
+}

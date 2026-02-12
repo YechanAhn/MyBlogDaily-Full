@@ -96,6 +96,35 @@ const REDIS_META_KEY = 'ev:meta';
 const REDIS_REGION_PREFIX = 'ev:';
 const REDIS_TTL = 90000; // 25시간 (초 단위)
 
+/** 좌표 기반 지역코드 추정 (대략적 바운딩박스) */
+export function estimateZcodeFromCoords(lat: number, lng: number): string | null {
+  const regions: { code: string; minLat: number; maxLat: number; minLng: number; maxLng: number }[] = [
+    { code: '11', minLat: 37.4, maxLat: 37.7, minLng: 126.7, maxLng: 127.2 }, // 서울
+    { code: '26', minLat: 34.9, maxLat: 35.3, minLng: 128.8, maxLng: 129.3 }, // 부산
+    { code: '27', minLat: 35.7, maxLat: 36.0, minLng: 128.4, maxLng: 128.8 }, // 대구
+    { code: '28', minLat: 37.3, maxLat: 37.6, minLng: 126.3, maxLng: 126.8 }, // 인천
+    { code: '29', minLat: 35.0, maxLat: 35.3, minLng: 126.7, maxLng: 127.0 }, // 광주
+    { code: '30', minLat: 36.2, maxLat: 36.5, minLng: 127.2, maxLng: 127.6 }, // 대전
+    { code: '31', minLat: 35.4, maxLat: 35.7, minLng: 129.0, maxLng: 129.5 }, // 울산
+    { code: '36', minLat: 36.4, maxLat: 36.7, minLng: 126.8, maxLng: 127.1 }, // 세종
+    { code: '41', minLat: 36.9, maxLat: 37.9, minLng: 126.4, maxLng: 127.8 }, // 경기
+    { code: '42', minLat: 37.0, maxLat: 38.3, minLng: 127.5, maxLng: 129.4 }, // 강원
+    { code: '43', minLat: 36.4, maxLat: 37.2, minLng: 127.3, maxLng: 128.3 }, // 충북
+    { code: '44', minLat: 36.0, maxLat: 37.0, minLng: 126.1, maxLng: 127.4 }, // 충남
+    { code: '45', minLat: 35.3, maxLat: 36.1, minLng: 126.4, maxLng: 127.5 }, // 전북
+    { code: '46', minLat: 34.1, maxLat: 35.5, minLng: 126.0, maxLng: 127.5 }, // 전남
+    { code: '47', minLat: 35.6, maxLat: 37.1, minLng: 128.3, maxLng: 129.6 }, // 경북
+    { code: '48', minLat: 34.7, maxLat: 35.9, minLng: 127.5, maxLng: 129.0 }, // 경남
+    { code: '50', minLat: 33.1, maxLat: 33.6, minLng: 126.1, maxLng: 127.0 }, // 제주
+  ];
+  for (const r of regions) {
+    if (lat >= r.minLat && lat <= r.maxLat && lng >= r.minLng && lng <= r.maxLng) {
+      return r.code;
+    }
+  }
+  return null;
+}
+
 /** 주소에서 지역코드 추출 */
 export function getZcodeFromAddress(address: string): string | null {
   const map: Record<string, string> = {

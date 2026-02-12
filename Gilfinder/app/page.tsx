@@ -17,6 +17,7 @@ import { searchAlongRoute } from '@/lib/searchAlongRoute';
 import { searchMealPlaces } from '@/lib/estimateArrival';
 import { openNaviApp, getNaviInfo } from '@/lib/deeplink';
 import { makeRouteKey, makePlaceKey, getCache, setCache, ROUTE_CACHE_TTL, PLACE_CACHE_TTL } from '@/lib/cache';
+import { getRandomLoadingTip } from '@/lib/loadingTips';
 
 export default function HomePage() {
   // App state
@@ -40,6 +41,7 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingText, setLoadingText] = useState('');
+  const [loadingTip, setLoadingTip] = useState('');
   const [mapCenter, setMapCenter] = useState<LatLng | undefined>(undefined);
   const [searchTarget, setSearchTarget] = useState<'origin' | 'dest'>('dest');
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -66,6 +68,19 @@ export default function HomePage() {
       );
     }
   }, []);
+
+  // 로딩 중 팁 로테이션 (3초마다 변경)
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingTip('');
+      return;
+    }
+    setLoadingTip(getRandomLoadingTip());
+    const timer = setInterval(() => {
+      setLoadingTip(getRandomLoadingTip());
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [isLoading]);
 
   // 경로 파싱 헬퍼
   const parseRouteData = useCallback((r: any): RouteResult => {
@@ -628,6 +643,14 @@ export default function HomePage() {
                 style={{ width: `${loadingProgress}%` }}
               />
             </div>
+            {loadingTip && (
+              <p
+                key={loadingTip}
+                className="text-[11px] text-gray-500 mt-2 text-center animate-tip-pop leading-tight"
+              >
+                {loadingTip}
+              </p>
+            )}
           </div>
         </div>
       )}
