@@ -22,8 +22,6 @@ const CATEGORIES: { key: SearchCategory; label: string; emoji?: string; icon?: s
 ];
 
 export default function CategoryChips({ value, onChange, visible = true, customLabel }: CategoryChipsProps) {
-  if (!visible) return null;
-
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hiddenCount, setHiddenCount] = useState(0);
 
@@ -52,6 +50,8 @@ export default function CategoryChips({ value, onChange, visible = true, customL
       window.removeEventListener('resize', updateCount);
     };
   }, []);
+
+  if (!visible) return null;
 
   return (
     <div className="relative">
