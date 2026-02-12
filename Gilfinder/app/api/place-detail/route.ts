@@ -226,6 +226,7 @@ async function fetchFromHTML(placeId: string) {
       rating: null,
       reviewCount: null,
       openHours: null,
+      ratingSource: null as 'kakao' | 'google' | null,
     };
   } catch {
     return null;
@@ -250,33 +251,39 @@ export async function GET(request: NextRequest) {
     // 1차: 카카오 내부 API 시도 (평점/리뷰/영업시간 포함)
     let apiResult = await fetchKakaoPlaceAPI(placeId);
 
-    if (apiResult) {
-      // Kakao 평점이 없고, Google API 호출 조건이 충족되면 Google API 시도
-      if (apiResult.rating === null && name && name.length <= 80 && latParam && lngParam) {
-        const lat = parseFloat(latParam);
-        const lng = parseFloat(lngParam);
+    // 2차: Kakao API 실패 시 HTML 메타태그 파싱 (이미지만)
+    if (!apiResult) {
+      apiResult = await fetchFromHTML(placeId);
+    }
 
-        if (!isNaN(lat) && !isNaN(lng) && lat >= 33 && lat <= 39 && lng >= 124 && lng <= 132) {
+    // 3차: Google Places API로 평점 보강 (Kakao 평점이 없을 때)
+    if (name && name.length <= 80 && latParam && lngParam) {
+      const lat = parseFloat(latParam);
+      const lng = parseFloat(lngParam);
+
+      if (!isNaN(lat) && !isNaN(lng) && lat >= 33 && lat <= 39 && lng >= 124 && lng <= 132) {
+        const needsRating = !apiResult || apiResult.rating === null;
+        if (needsRating) {
           const googleRating = await fetchGooglePlaceRating(name, lat, lng);
           if (googleRating) {
-            // Google 평점으로 업데이트
             apiResult = {
-              ...apiResult,
+              ...(apiResult || { id: placeId, imageUrl: null, title: null, description: null, reviewCount: null, openHours: null }),
               rating: googleRating.rating,
-              reviewCount: googleRating.reviewCount,
+              reviewCount: googleRating.reviewCount ?? apiResult?.reviewCount ?? null,
               ratingSource: 'google' as const,
-            };
+            } as any;
+          }
+        } else if (apiResult) {
+          // Kakao 평점이 있는 경우 ratingSource 설정
+          if (!('ratingSource' in apiResult) || !(apiResult as any).ratingSource) {
+            (apiResult as any).ratingSource = 'kakao';
           }
         }
       }
-
-      return NextResponse.json(apiResult);
     }
 
-    // 2차: HTML 메타태그 파싱 (이미지만)
-    const htmlResult = await fetchFromHTML(placeId);
-    if (htmlResult) {
-      return NextResponse.json(htmlResult);
+    if (apiResult) {
+      return NextResponse.json(apiResult);
     }
 
     return NextResponse.json({
@@ -287,6 +294,7 @@ export async function GET(request: NextRequest) {
       rating: null,
       reviewCount: null,
       openHours: null,
+      ratingSource: null,
     });
   } catch (error) {
     console.error('Place detail API error:', error);
