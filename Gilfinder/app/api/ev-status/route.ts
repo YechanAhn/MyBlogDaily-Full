@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getChargerStatusByStation } from '@/lib/evCache';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * 실시간 충전기 상태 조회 API
  * GET /api/ev-status?statId=ME000001&lat=37.5&lng=127.0
