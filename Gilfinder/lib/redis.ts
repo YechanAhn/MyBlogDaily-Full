@@ -61,6 +61,38 @@ export async function cacheMGet<T>(keys: string[]): Promise<(T | null)[]> {
 }
 
 /**
+ * 대량 키-값 파이프라인 저장 (Upstash pipeline 사용)
+ * - 개별 SET 대신 파이프라인으로 묶어서 호출 (API 요청 수 절약)
+ * - 200개씩 배치 처리 (Upstash body size 제한 대응)
+ */
+export async function cachePipelineSet<T>(
+  entries: { key: string; value: T; ttl: number }[]
+): Promise<number> {
+  try {
+    const client = getRedis();
+    if (!client || entries.length === 0) return 0;
+
+    let saved = 0;
+    const BATCH_SIZE = 200;
+
+    for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+      const batch = entries.slice(i, i + BATCH_SIZE);
+      const pipeline = client.pipeline();
+      for (const { key, value, ttl } of batch) {
+        pipeline.set(key, value, { ex: ttl });
+      }
+      await pipeline.exec();
+      saved += batch.length;
+    }
+
+    return saved;
+  } catch (err) {
+    console.error('Redis Pipeline SET 실패:', err);
+    return 0;
+  }
+}
+
+/**
  * 에러 카운터 증가 (health monitoring 용)
  */
 export async function incrementErrorCount(apiName: string): Promise<void> {

@@ -10,7 +10,7 @@
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { cacheGet, cacheSet, cacheMGet } from './redis';
+import { cacheGet, cacheSet, cacheMGet, cachePipelineSet } from './redis';
 
 // ===================== API 응답 파싱 =====================
 
@@ -425,7 +425,7 @@ function compactStation(s: EvStation): EvStationCompact {
   };
 }
 
-/** 지오 그리드 인덱스 생성 후 Redis 저장 */
+/** 지오 그리드 인덱스 생성 후 Redis 저장 (pipeline으로 대량 저장 최적화) */
 async function saveGeoIndex(stations: EvStation[]): Promise<number> {
   const grid = new Map<string, EvStationCompact[]>();
   for (const s of stations) {
@@ -434,17 +434,18 @@ async function saveGeoIndex(stations: EvStation[]): Promise<number> {
     grid.get(key)!.push(compactStation(s));
   }
 
-  // 병렬로 Redis에 저장 (50개씩 배치)
-  const entries = Array.from(grid.entries());
-  for (let i = 0; i < entries.length; i += 50) {
-    const batch = entries.slice(i, i + 50);
-    await Promise.all(batch.map(([key, data]) => cacheSet(key, data, GRID_TTL)));
-  }
+  // Redis pipeline으로 대량 저장 (개별 SET 대신 배치 파이프라인)
+  const pipelineEntries = Array.from(grid.entries()).map(([key, data]) => ({
+    key,
+    value: data,
+    ttl: GRID_TTL,
+  }));
+  const saved = await cachePipelineSet(pipelineEntries);
 
   // 그리드 메타 저장
-  await cacheSet('ev:grid:meta', { cellCount: grid.size, updatedAt: Date.now() }, GRID_TTL);
+  await cacheSet('ev:grid:meta', { cellCount: grid.size, updatedAt: Date.now(), savedCells: saved }, GRID_TTL);
 
-  console.log(`[EvCache] 지오 그리드 인덱스 생성: ${grid.size}개 셀`);
+  console.log(`[EvCache] 지오 그리드 인덱스: ${grid.size}개 셀, ${saved}개 저장 성공`);
   return grid.size;
 }
 
