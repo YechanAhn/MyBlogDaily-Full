@@ -7,7 +7,7 @@ import { getChargerStatusByStation } from '@/lib/evCache';
  */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const statId = searchParams.get('statId');
     const lat = parseFloat(searchParams.get('lat') || '0');
     const lng = parseFloat(searchParams.get('lng') || '0');
