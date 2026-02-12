@@ -602,6 +602,151 @@ export async function lookupEvFallback(
   });
 }
 
+// ===================== 직접 API 폴백 (Redis 비활성화 시) =====================
+
+// 인메모리 캐시: 지역별 충전소 데이터 (10분 TTL)
+const directApiCache = new Map<string, { stations: EvStation[]; fetchedAt: number }>();
+const DIRECT_CACHE_TTL = 10 * 60 * 1000; // 10분
+
+/** Redis가 비어있을 때 data.go.kr API에서 직접 조회하여 매칭 */
+export async function lookupEvDirectApi(
+  places: { name: string; lat: number; lng: number; address?: string }[]
+): Promise<(EvMatchResult | null)[]> {
+  if (places.length === 0) return [];
+
+  const apiKey = process.env.DATA_GO_KR_API_KEY;
+  if (!apiKey) {
+    console.error('[EvCache] DATA_GO_KR_API_KEY가 설정되지 않음');
+    return places.map(() => null);
+  }
+
+  // 1. 필요한 지역코드 수집 (중복 제거)
+  const zcodeSet = new Set<string>();
+  for (const p of places) {
+    const z = estimateZcodeFromCoords(p.lat, p.lng);
+    if (z) zcodeSet.add(z);
+  }
+
+  if (zcodeSet.size === 0) return places.map(() => null);
+
+  // 2. 지역별 데이터 조회 (인메모리 캐시 사용)
+  const allStations: EvStation[] = [];
+  const zcodes = Array.from(zcodeSet);
+
+  for (const zcode of zcodes) {
+    // 캐시 확인 (10분 이내 데이터)
+    const cached = directApiCache.get(zcode);
+    if (cached && Date.now() - cached.fetchedAt < DIRECT_CACHE_TTL) {
+      allStations.push(...cached.stations);
+      continue;
+    }
+
+    // API 호출
+    try {
+      const { items } = await fetchRegion(apiKey, zcode, 1, 9999);
+      const chargers = items.map(parseChargerItem).filter(Boolean) as ReturnType<typeof parseChargerItem>[];
+      const stations = aggregateByStation(chargers);
+
+      // 캐시 저장
+      directApiCache.set(zcode, { stations, fetchedAt: Date.now() });
+      allStations.push(...stations);
+
+      console.log(`[EvCache] 직접 API 조회: 지역 ${zcode} → ${stations.length}개 충전소`);
+    } catch (e) {
+      console.error(`[EvCache] 직접 API 조회 실패 (지역 ${zcode}):`, e);
+      // 실패 시 해당 지역은 건너뛰기
+    }
+
+    // API 호출 간 짧은 대기 (rate limit 방지)
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  if (allStations.length === 0) return places.map(() => null);
+
+  // 3. 각 장소별 매칭 (lookupEvByGrid와 동일한 로직)
+  return places.map(p => {
+    const nearby = allStations
+      .map(s => ({
+        station: s,
+        dist: Math.sqrt((s.lat - p.lat) ** 2 + (s.lng - p.lng) ** 2) * 111,
+      }))
+      .filter(s => s.dist <= 1.0)
+      .sort((a, b) => a.dist - b.dist);
+
+    if (nearby.length === 0) return null;
+
+    // 300m 이내 → 즉시 매칭
+    if (nearby[0].dist <= 0.3) {
+      const s = nearby[0].station;
+      return {
+        statId: s.statId,
+        chargerTypes: s.chargerTypes,
+        maxOutput: s.maxOutput,
+        operator: s.busiNm,
+        chargerCount: s.chargerCount,
+        useTime: s.useTime,
+        parkingFree: s.parkingFree,
+      };
+    }
+
+    // 이름 매칭
+    const normalize = (name: string) =>
+      name.replace(/충전소|충전기|전기차|EV|ev|\(.*?\)|주차장|공용/gi, '')
+        .replace(/[()·\-_#]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    const pNorm = normalize(p.name);
+
+    for (const { station: s } of nearby) {
+      const sNorm = normalize(s.statNm);
+      if (sNorm.includes(pNorm) || pNorm.includes(sNorm)) {
+        return {
+          statId: s.statId,
+          chargerTypes: s.chargerTypes,
+          maxOutput: s.maxOutput,
+          operator: s.busiNm,
+          chargerCount: s.chargerCount,
+          useTime: s.useTime,
+          parkingFree: s.parkingFree,
+        };
+      }
+
+      // 토큰 매칭
+      const tokensA = pNorm.split(/\s+/).filter(w => w.length >= 2);
+      const tokensB = sNorm.split(/\s+/).filter(w => w.length >= 2);
+      for (const a of tokensA) {
+        for (const b of tokensB) {
+          if (a === b || a.includes(b) || b.includes(a)) {
+            return {
+              statId: s.statId,
+              chargerTypes: s.chargerTypes,
+              maxOutput: s.maxOutput,
+              operator: s.busiNm,
+              chargerCount: s.chargerCount,
+              useTime: s.useTime,
+              parkingFree: s.parkingFree,
+            };
+          }
+        }
+      }
+    }
+
+    // 500m 이내 폴백
+    if (nearby[0].dist <= 0.5) {
+      const s = nearby[0].station;
+      return {
+        statId: s.statId,
+        chargerTypes: s.chargerTypes,
+        maxOutput: s.maxOutput,
+        operator: s.busiNm,
+        chargerCount: s.chargerCount,
+        useTime: s.useTime,
+        parkingFree: s.parkingFree,
+      };
+    }
+
+    return null;
+  });
+}
+
 // ===================== 매칭 (레거시) =====================
 
 /** 캐시에서 좌표 근처 충전소 검색 */
