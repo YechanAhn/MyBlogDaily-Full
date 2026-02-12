@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '최대 50개까지 가능합니다.' }, { status: 400 });
     }
 
-    let cache = await getEvCache();
+    const cache = await getEvCache();
 
     // 캐시 없으면 필요한 지역만 부분 조회
     if (!cache) {
