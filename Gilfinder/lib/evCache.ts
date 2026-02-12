@@ -383,10 +383,11 @@ export async function fetchRegions(
 /** 전국 충전소 캐시 갱신 */
 export async function refreshEvCache(
   apiKey: string
-): Promise<{ totalStations: number; apiCalls: number; errors: number }> {
+): Promise<{ totalStations: number; apiCalls: number; errors: number; firstError: string | null }> {
   const allChargers: ReturnType<typeof parseChargerItem>[] = [];
   let apiCalls = 0;
   let errors = 0;
+  let firstError: string | null = null;
 
   // 배치 처리 (3개 지역씩)
   for (let i = 0; i < ZCODES.length; i += 3) {
@@ -409,8 +410,9 @@ export async function refreshEvCache(
         }
 
         return chargers;
-      } catch (e) {
+      } catch (e: any) {
         errors++;
+        if (!firstError) firstError = `${code}: ${e?.message || String(e)}`;
         console.error(`[EvCache] ${code} 조회 실패:`, e);
         return [];
       }
@@ -446,5 +448,6 @@ export async function refreshEvCache(
     totalStations: stations.length,
     apiCalls,
     errors,
+    firstError,
   };
 }
