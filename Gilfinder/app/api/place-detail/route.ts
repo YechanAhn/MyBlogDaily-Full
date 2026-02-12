@@ -38,7 +38,7 @@ async function fetchGooglePlaceRating(placeName: string, lat: number, lng: numbe
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': apiKey,
-        'X-Goog-FieldMask': 'places.rating,places.userRatingCount,places.location,places.displayName',
+        'X-Goog-FieldMask': 'places.rating,places.userRatingCount,places.location,places.displayName,places.reviews',
       },
       body: JSON.stringify({
         textQuery: placeName,
@@ -61,13 +61,23 @@ async function fetchGooglePlaceRating(placeName: string, lat: number, lng: numbe
     const data = await res.json();
     const places = data.places || [];
 
-    let best: { rating: number; reviewCount: number | null } | null = null;
+    let best: { rating: number; reviewCount: number | null; reviews: Array<{ author: string; rating: number; text: string; relativeTime: string }> } | null = null;
     let bestDistance = Infinity;
 
     for (const candidate of places) {
       const rating = toNumber(candidate.rating);
       if (rating === null) continue;
       const reviewCount = toInt(candidate.userRatingCount);
+      const reviews = (candidate.reviews || [])
+        .filter((r: any) => r.text?.text)
+        .sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0))
+        .slice(0, 2)
+        .map((r: any) => ({
+          author: r.authorAttribution?.displayName || '익명',
+          rating: r.rating || 0,
+          text: r.text?.text?.slice(0, 150) || '',
+          relativeTime: r.relativePublishTimeDescription || '',
+        }));
       const location = candidate.location;
       const locLat = toNumber(location?.latitude);
       const locLng = toNumber(location?.longitude);
@@ -75,10 +85,10 @@ async function fetchGooglePlaceRating(placeName: string, lat: number, lng: numbe
         const distance = haversineKm(lat, lng, locLat, locLng);
         if (distance <= 1 && distance < bestDistance) {
           bestDistance = distance;
-          best = { rating, reviewCount };
+          best = { rating, reviewCount, reviews };
         }
       } else if (!best) {
-        best = { rating, reviewCount };
+        best = { rating, reviewCount, reviews };
       }
     }
 
@@ -86,6 +96,7 @@ async function fetchGooglePlaceRating(placeName: string, lat: number, lng: numbe
       return {
         rating: Math.round(best.rating * 10) / 10,
         reviewCount: best.reviewCount,
+        reviews: best.reviews,
       };
     }
 
@@ -271,6 +282,7 @@ export async function GET(request: NextRequest) {
               rating: googleRating.rating,
               reviewCount: googleRating.reviewCount ?? apiResult?.reviewCount ?? null,
               ratingSource: 'google' as const,
+              reviews: googleRating.reviews || [],
             } as any;
           }
         } else if (apiResult) {
@@ -295,6 +307,7 @@ export async function GET(request: NextRequest) {
       reviewCount: null,
       openHours: null,
       ratingSource: null,
+      reviews: [],
     });
   } catch (error) {
     console.error('Place detail API error:', error);

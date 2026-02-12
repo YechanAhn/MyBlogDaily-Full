@@ -14,7 +14,8 @@ const CATEGORY_MAP: Record<SearchCategory, { keyword: string; code?: string }> =
 
 // 총 거리 기반 가변 파라미터
 function getRouteParams(totalDistanceKm: number): { radius: number; intervalKm: number } {
-  if (totalDistanceKm < 30) return { radius: 500, intervalKm: 1 };
+  if (totalDistanceKm < 10) return { radius: 400, intervalKm: 0.3 };
+  if (totalDistanceKm < 30) return { radius: 500, intervalKm: 0.7 };
   if (totalDistanceKm < 100) return { radius: 1000, intervalKm: 2 };
   if (totalDistanceKm < 300) return { radius: 2000, intervalKm: 3 };
   return { radius: 3000, intervalKm: 5 };

@@ -36,6 +36,9 @@ export default function PlaceDetail({
   const [delta, setDelta] = useState<WaypointDelta>({ duration: 0, distance: 0, loading: false });
   const [imageUrl, setImageUrl] = useState<string | null>(place.imageUrl || null);
   const [imgError, setImgError] = useState(false);
+  const [reviews, setReviews] = useState<Array<{
+    author: string; rating: number; text: string; relativeTime: string;
+  }>>([]);
 
   // 경유지 추가 시 경로 변경 계산
   useEffect(() => {
@@ -80,26 +83,23 @@ export default function PlaceDetail({
     fetchWaypointRoute();
   }, [place.id, origin, destination, originalDuration, originalDistance, place.lat, place.lng, place.name]);
 
-  // 장소 상세 정보에서 이미지 가져오기
+  // 장소 상세 정보에서 이미지 + 리뷰 가져오기
   useEffect(() => {
-    if (place.imageUrl) {
-      setImageUrl(place.imageUrl);
-      return;
-    }
-
-    const fetchImage = async () => {
+    const fetchDetail = async () => {
       try {
-        const res = await fetch(`/api/place-detail?id=${place.id}`);
+        const params = new URLSearchParams({ id: place.id });
+        if (place.name) params.set('name', place.name);
+        if (place.lat) params.set('lat', String(place.lat));
+        if (place.lng) params.set('lng', String(place.lng));
+        const res = await fetch(`/api/place-detail?${params}`);
         if (!res.ok) return;
         const data = await res.json();
-        if (data.imageUrl) setImageUrl(data.imageUrl);
-      } catch {
-        // 실패 시 무시
-      }
+        if (data.imageUrl && !place.imageUrl) setImageUrl(data.imageUrl);
+        if (data.reviews?.length) setReviews(data.reviews);
+      } catch { /* 무시 */ }
     };
-
-    fetchImage();
-  }, [place.id, place.imageUrl]);
+    fetchDetail();
+  }, [place.id, place.name, place.lat, place.lng, place.imageUrl]);
 
   const handleNavi = (navi: NaviApp) => {
     if (!origin || !destination) return;
@@ -175,6 +175,25 @@ export default function PlaceDetail({
             <span className="text-sm font-bold text-red-500">{place.fuelPrice.toLocaleString()}원/L</span>
           )}
         </div>
+
+        {/* 베스트 리뷰 */}
+        {reviews.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <p className="text-xs font-semibold text-gray-500">베스트 리뷰</p>
+            {reviews.map((review, i) => (
+              <div key={i} className="p-3 bg-gray-50 rounded-xl">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-gray-700">{review.author}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-amber-500">{'★'.repeat(Math.round(review.rating))}</span>
+                    <span className="text-[10px] text-gray-400">{review.relativeTime}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-600 leading-relaxed">{review.text}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* 경유지 추가 시 경로 변경 델타 */}
         {originalDuration && (
