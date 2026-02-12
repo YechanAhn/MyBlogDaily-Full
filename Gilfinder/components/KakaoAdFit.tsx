@@ -37,7 +37,7 @@ export default function KakaoAdFit({ unit, width, height, className = '' }: Kaka
       if (container.querySelector('.kakao_ad_area')) return;
 
       const adfit = (window as any).adfit || (window as any).kakaoAdFit;
-      if (adfit) {
+      if (adfit && typeof adfit.display === 'function') {
         const ins = document.createElement('ins');
         ins.className = 'kakao_ad_area';
         ins.style.display = 'none';
