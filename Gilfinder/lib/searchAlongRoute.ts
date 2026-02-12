@@ -250,18 +250,62 @@ function calculateTotalDistance(polyline: LatLng[]): number {
   return total;
 }
 
+// 경로의 가장 가까운 세그먼트 찾기 + 좌/우 판별
+function findNearestSegmentInfo(
+  polyline: LatLng[],
+  point: LatLng
+): { perpDistKm: number; isRightSide: boolean } {
+  if (polyline.length < 2) return { perpDistKm: Infinity, isRightSide: true };
+
+  const toLocalXY = (lat: number, lng: number, refLat: number) => {
+    const cosLat = Math.cos(refLat * Math.PI / 180);
+    const k = 111.32;
+    return { x: lng * cosLat * k, y: lat * k };
+  };
+
+  let bestDist = Infinity;
+  let bestSegIdx = 0;
+
+  for (let i = 0; i < polyline.length - 1; i++) {
+    const a = polyline[i], b = polyline[i + 1];
+    const refLat = (a.lat + b.lat) / 2;
+    const pa = toLocalXY(a.lat, a.lng, refLat);
+    const pb = toLocalXY(b.lat, b.lng, refLat);
+    const pp = toLocalXY(point.lat, point.lng, refLat);
+    const abx = pb.x - pa.x, aby = pb.y - pa.y;
+    const apx = pp.x - pa.x, apy = pp.y - pa.y;
+    const ab2 = abx * abx + aby * aby;
+    const t = ab2 === 0 ? 0 : Math.max(0, Math.min(1, (apx * abx + apy * aby) / ab2));
+    const dist = Math.hypot(pp.x - (pa.x + abx * t), pp.y - (pa.y + aby * t));
+
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestSegIdx = i;
+    }
+  }
+
+  // 외적으로 좌/우 판별 (음수 = 오른쪽 = 한국 우측통행 접근 가능)
+  const seg = polyline[bestSegIdx], segNext = polyline[bestSegIdx + 1];
+  const dx = segNext.lng - seg.lng, dy = segNext.lat - seg.lat;
+  const px = point.lng - seg.lng, py = point.lat - seg.lat;
+  const cross = dx * py - dy * px;
+
+  return { perpDistKm: bestDist, isRightSide: cross <= 0 };
+}
+
 async function calculateDetourTimes(
   places: Place[],
   polyline: LatLng[],
   _originalDuration?: number
 ): Promise<Place[]> {
   return places.map(place => {
-    const nearestDist = nearestRouteDistance(polyline, { lat: place.lat, lng: place.lng });
-    const distMeters = nearestDist * 1000;
+    const segInfo = findNearestSegmentInfo(polyline, { lat: place.lat, lng: place.lng });
+    const distMeters = segInfo.perpDistKm * 1000;
     // 도로 계수 1.4 적용, 평균 40km/h 가정, 왕복
     const drivingMin = (distMeters * 1.4 / 1000) / 40 * 60 * 2;
-    // 고속도로 진출입 시간 추가 (약 3분)
-    const detourMinutes = Math.max(1, Math.round(drivingMin + 3));
+    // 반대편(왼쪽) + 경로 가까이(500m 이내) = 고속도로 반대편 → +8분 패널티
+    const wrongSidePenalty = (!segInfo.isRightSide && distMeters < 500) ? 8 : 0;
+    const detourMinutes = Math.max(1, Math.round(drivingMin + 3 + wrongSidePenalty));
     return { ...place, detourMinutes, detourDistance: Math.round(distMeters * 1.4 * 2) };
   });
 }
