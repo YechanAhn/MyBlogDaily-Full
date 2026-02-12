@@ -48,6 +48,7 @@ export interface Place {
   evAvailable?: number;         // 사용 가능 충전기 수
   evUseTime?: string;           // 이용 가능 시간
   evParkingFree?: boolean;      // 주차료 무료 여부
+  evStatId?: string;            // 환경부 충전소 ID (실시간 상태 조회용)
 }
 
 // EV 충전기 타입 코드 → 이름 매핑

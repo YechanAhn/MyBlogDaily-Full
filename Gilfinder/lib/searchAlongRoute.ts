@@ -506,6 +506,7 @@ async function enrichEvChargerInfo(
     if (!res.ok) return places;
     const data = await res.json();
     const results: (({
+      statId: string;
       chargerTypes: string[];
       maxOutput: number;
       operator: string;
@@ -525,6 +526,7 @@ async function enrichEvChargerInfo(
           evChargerCount: match.chargerCount,
           evUseTime: match.useTime,
           evParkingFree: match.parkingFree,
+          evStatId: match.statId,
         };
       }
       return place;

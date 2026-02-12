@@ -399,6 +399,7 @@ interface EvStationCompact {
 
 /** 매칭 결과 타입 */
 export interface EvMatchResult {
+  statId: string;          // 충전소 ID (실시간 상태 조회용)
   chargerTypes: string[];
   maxOutput: number;
   operator: string;
@@ -450,6 +451,7 @@ async function saveGeoIndex(stations: EvStation[]): Promise<number> {
 /** compact 데이터를 매칭 결과로 변환 */
 function formatCompactMatch(c: EvStationCompact): EvMatchResult {
   return {
+    statId: c.i,
     chargerTypes: c.ct,
     maxOutput: c.mo,
     operator: c.b,
@@ -760,4 +762,122 @@ export async function refreshEvCache(
     errors,
     firstError,
   };
+}
+
+// ===================== 실시간 충전기 상태 =====================
+
+const STATUS_API_BASE = 'https://apis.data.go.kr/B552584/EvCharger/getChargerStatus';
+const STATUS_CACHE_PREFIX = 'ev:status:';
+const STATUS_CACHE_TTL = 180; // 3분
+
+/** 개별 충전기 상태 데이터 */
+export interface ChargerUnitStatus {
+  chgerId: string;      // 충전기 ID
+  stat: string;         // 상태 코드 (1~9)
+  statUpdDt: string;    // 상태 갱신일시
+  nowTsdt: string;      // 현재 충전 시작일시
+  lastTsdt: string;     // 마지막 충전 시작일시
+  lastTedt: string;     // 마지막 충전 종료일시
+}
+
+/** 충전소 단위 상태 집계 */
+export interface StationStatus {
+  statId: string;
+  chargers: ChargerUnitStatus[];
+  total: number;
+  available: number;    // 충전대기(2)
+  charging: number;     // 충전중(3)
+  broken: number;       // 통신이상(1) + 운영중지(4) + 점검중(5)
+  unknown: number;      // 상태미확인(9)
+}
+
+/** 특정 충전소의 실시간 충전기 상태 조회 */
+export async function getChargerStatusByStation(
+  statId: string,
+  lat: number,
+  lng: number
+): Promise<StationStatus | null> {
+  const apiKey = process.env.DATA_GO_KR_API_KEY;
+  if (!apiKey) return null;
+
+  // 좌표로 지역코드 추정
+  const zcode = estimateZcodeFromCoords(lat, lng);
+  if (!zcode) return null;
+
+  const cacheKey = `${STATUS_CACHE_PREFIX}${zcode}`;
+
+  // 1. Redis 캐시 확인 (지역 단위)
+  try {
+    const cached = await cacheGet<Record<string, ChargerUnitStatus[]>>(cacheKey);
+    if (cached && cached[statId]) {
+      return aggregateStationStatus(statId, cached[statId]);
+    }
+    // 캐시는 있지만 해당 statId가 없는 경우 - 캐시가 최근 것이면 null 반환
+    if (cached) return null;
+  } catch { /* 캐시 실패 시 API 호출 진행 */ }
+
+  // 2. API 호출 (지역 전체)
+  try {
+    const url = `${STATUS_API_BASE}?ServiceKey=${apiKey}&zcode=${zcode}&numOfRows=9999&pageNo=1&period=5`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) return null;
+
+    const text = await res.text();
+    let items: Record<string, string>[];
+
+    if (text.trim().startsWith('{')) {
+      try {
+        const json = JSON.parse(text);
+        const rawItems = json?.items?.item || json?.body?.items?.item || [];
+        items = Array.isArray(rawItems) ? rawItems : [rawItems];
+      } catch {
+        items = parseXmlItems(text);
+      }
+    } else {
+      items = parseXmlItems(text);
+    }
+
+    // statId별 그룹핑
+    const grouped: Record<string, ChargerUnitStatus[]> = {};
+    for (const item of items) {
+      const sid = item.statId;
+      if (!sid) continue;
+      if (!grouped[sid]) grouped[sid] = [];
+      grouped[sid].push({
+        chgerId: item.chgerId || '',
+        stat: item.stat || '9',
+        statUpdDt: item.statUpdDt || '',
+        nowTsdt: item.nowTsdt || '',
+        lastTsdt: item.lastTsdt || '',
+        lastTedt: item.lastTedt || '',
+      });
+    }
+
+    // Redis에 캐시 (3분 TTL)
+    try {
+      await cacheSet(cacheKey, grouped, STATUS_CACHE_TTL);
+    } catch { /* 캐시 저장 실패 무시 */ }
+
+    if (grouped[statId]) {
+      return aggregateStationStatus(statId, grouped[statId]);
+    }
+    return null;
+  } catch (e) {
+    console.error('[EvStatus] API 호출 실패:', e);
+    return null;
+  }
+}
+
+/** 충전기 상태 목록 → 충전소 단위 집계 */
+function aggregateStationStatus(statId: string, chargers: ChargerUnitStatus[]): StationStatus {
+  let available = 0, charging = 0, broken = 0, unknown = 0;
+  for (const c of chargers) {
+    switch (c.stat) {
+      case '2': available++; break;
+      case '3': charging++; break;
+      case '1': case '4': case '5': broken++; break;
+      default: unknown++; break;
+    }
+  }
+  return { statId, chargers, total: chargers.length, available, charging, broken, unknown };
 }

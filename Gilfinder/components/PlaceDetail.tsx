@@ -39,6 +39,11 @@ export default function PlaceDetail({
   const [reviews, setReviews] = useState<Array<{
     author: string; rating: number; text: string; relativeTime: string;
   }>>([]);
+  const [chargerStatus, setChargerStatus] = useState<{
+    total: number; available: number; charging: number; broken: number;
+    chargingDetails: { chgerId: string; elapsedMin: number | null }[];
+  } | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
 
   // 경유지 추가 시 경로 변경 계산
   useEffect(() => {
@@ -100,6 +105,24 @@ export default function PlaceDetail({
     };
     fetchDetail();
   }, [place.id, place.name, place.lat, place.lng, place.imageUrl]);
+
+  // 전기차 충전소 실시간 상태 조회
+  useEffect(() => {
+    if (!place.evStatId) return;
+    const fetchStatus = async () => {
+      setStatusLoading(true);
+      try {
+        const res = await fetch(
+          `/api/ev-status?statId=${encodeURIComponent(place.evStatId!)}&lat=${place.lat}&lng=${place.lng}`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status) setChargerStatus(data.status);
+      } catch { /* 무시 */ }
+      finally { setStatusLoading(false); }
+    };
+    fetchStatus();
+  }, [place.evStatId, place.lat, place.lng]);
 
   const handleNavi = (navi: NaviApp) => {
     if (!origin || !destination) return;
@@ -227,6 +250,60 @@ export default function PlaceDetail({
             {place.evUseTime && (
               <p className="text-[11px] text-gray-500 mt-2">이용시간: {place.evUseTime}</p>
             )}
+            {/* 실시간 충전 현황 */}
+            {statusLoading ? (
+              <div className="mt-3 pt-3 border-t border-green-200 flex items-center gap-2">
+                <div className="w-3 h-3 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-green-600">실시간 현황 로딩 중...</span>
+              </div>
+            ) : chargerStatus ? (
+              <div className="mt-3 pt-3 border-t border-green-200">
+                <p className="text-xs font-semibold text-green-800 mb-2">실시간 충전 현황</p>
+                <div className="flex gap-2 mb-2">
+                  {chargerStatus.available > 0 && (
+                    <span className="text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg font-bold">
+                      충전가능 {chargerStatus.available}기
+                    </span>
+                  )}
+                  {chargerStatus.charging > 0 && (
+                    <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-lg font-bold">
+                      충전중 {chargerStatus.charging}기
+                    </span>
+                  )}
+                  {chargerStatus.broken > 0 && (
+                    <span className="text-xs px-2 py-1 bg-gray-100 text-gray-500 rounded-lg font-medium">
+                      고장/점검 {chargerStatus.broken}기
+                    </span>
+                  )}
+                </div>
+                {/* 프로그레스 바 */}
+                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden flex">
+                  {chargerStatus.available > 0 && (
+                    <div className="h-full bg-emerald-500" style={{ width: `${(chargerStatus.available / chargerStatus.total) * 100}%` }} />
+                  )}
+                  {chargerStatus.charging > 0 && (
+                    <div className="h-full bg-blue-400" style={{ width: `${(chargerStatus.charging / chargerStatus.total) * 100}%` }} />
+                  )}
+                  {chargerStatus.broken > 0 && (
+                    <div className="h-full bg-gray-300" style={{ width: `${(chargerStatus.broken / chargerStatus.total) * 100}%` }} />
+                  )}
+                </div>
+                {/* 모든 충전기 사용중일 때 상세 정보 */}
+                {chargerStatus.available === 0 && chargerStatus.charging > 0 && (
+                  <div className="mt-2 p-2 bg-amber-50 rounded-lg">
+                    <p className="text-xs font-medium text-amber-700 mb-1">현재 모든 충전기 사용중</p>
+                    {chargerStatus.chargingDetails.map((d, i) => (
+                      <p key={i} className="text-[11px] text-amber-600">
+                        충전기 {d.chgerId}: {d.elapsedMin !== null ? `${d.elapsedMin}분 전 시작` : '시간 정보 없음'}
+                        {d.elapsedMin !== null && d.elapsedMin < 60 && (
+                          <span className="text-amber-500 ml-1">(약 {Math.max(5, 40 - d.elapsedMin)}분 후 완료 예상)</span>
+                        )}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
         )}
 
