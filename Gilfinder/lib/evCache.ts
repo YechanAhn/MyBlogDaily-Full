@@ -258,7 +258,7 @@ async function fetchRegion(
   // Encoding 키(이미 URL 인코딩됨)를 그대로 사용
   const url = `${EV_API_BASE}?ServiceKey=${apiKey}&zcode=${zcode}&pageNo=${pageNo}&numOfRows=${numOfRows}`;
 
-  const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
+  const res = await fetch(url, { signal: AbortSignal.timeout(55000) });
   if (!res.ok) {
     throw new Error(`API 호출 실패: ${res.status}`);
   }
