@@ -1108,7 +1108,7 @@ export async function getChargerStatusByStation(
 
   // 2. API 호출 (지역 전체)
   try {
-    const url = `${STATUS_API_BASE}?ServiceKey=${apiKey}&zcode=${zcode}&numOfRows=9999&pageNo=1&period=5`;
+    const url = `${STATUS_API_BASE}?ServiceKey=${apiKey}&zcode=${zcode}&numOfRows=9999&pageNo=1`;
     const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
     if (!res.ok) return null;
 
