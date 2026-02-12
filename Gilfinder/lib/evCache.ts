@@ -543,6 +543,64 @@ export async function lookupEvByGrid(
   });
 }
 
+/** 그리드 인덱스 폴백: 지역 캐시에서 직접 매칭 (느리지만 확실) */
+export async function lookupEvFallback(
+  places: { name: string; lat: number; lng: number; address?: string }[]
+): Promise<(EvMatchResult | null)[]> {
+  // 필요한 지역코드 수집
+  const zcodeSet = new Set<string>();
+  for (const p of places) {
+    const z = estimateZcodeFromCoords(p.lat, p.lng);
+    if (z) zcodeSet.add(z);
+  }
+
+  if (zcodeSet.size === 0) return places.map(() => null);
+
+  // 지역별 캐시 로드
+  const stations = await getEvCacheForRegions(Array.from(zcodeSet));
+  if (stations.length === 0) return places.map(() => null);
+
+  // 각 장소별 매칭
+  return places.map(p => {
+    const nearby = stations
+      .map(s => ({
+        station: s,
+        dist: Math.sqrt((s.lat - p.lat) ** 2 + (s.lng - p.lng) ** 2) * 111,
+      }))
+      .filter(s => s.dist <= 1.0)
+      .sort((a, b) => a.dist - b.dist);
+
+    if (nearby.length === 0) return null;
+
+    // 300m 이내 최근접
+    if (nearby[0].dist <= 0.3) {
+      const s = nearby[0].station;
+      return { statId: s.statId, chargerTypes: s.chargerTypes, maxOutput: s.maxOutput, operator: s.busiNm, chargerCount: s.chargerCount, useTime: s.useTime, parkingFree: s.parkingFree };
+    }
+
+    // 이름 매칭
+    const normalize = (name: string) =>
+      name.replace(/충전소|충전기|전기차|EV|ev|\(.*?\)|주차장|공용/gi, '')
+        .replace(/[()·\-_#]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    const pNorm = normalize(p.name);
+
+    for (const { station: s } of nearby) {
+      const sNorm = normalize(s.statNm);
+      if (sNorm.includes(pNorm) || pNorm.includes(sNorm)) {
+        return { statId: s.statId, chargerTypes: s.chargerTypes, maxOutput: s.maxOutput, operator: s.busiNm, chargerCount: s.chargerCount, useTime: s.useTime, parkingFree: s.parkingFree };
+      }
+    }
+
+    // 500m 폴백
+    if (nearby[0].dist <= 0.5) {
+      const s = nearby[0].station;
+      return { statId: s.statId, chargerTypes: s.chargerTypes, maxOutput: s.maxOutput, operator: s.busiNm, chargerCount: s.chargerCount, useTime: s.useTime, parkingFree: s.parkingFree };
+    }
+
+    return null;
+  });
+}
+
 // ===================== 매칭 (레거시) =====================
 
 /** 캐시에서 좌표 근처 충전소 검색 */
@@ -762,6 +820,114 @@ export async function refreshEvCache(
     errors,
     firstError,
   };
+}
+
+// ===================== 배치 갱신 =====================
+
+/** 배치별 지역 분할 (6배치 x ~3지역) */
+const BATCH_REGIONS: string[][] = [
+  ['11', '26', '27'],   // 서울, 부산, 대구
+  ['28', '29', '30'],   // 인천, 광주, 대전
+  ['31', '36', '41'],   // 울산, 세종, 경기
+  ['42', '43', '44'],   // 강원, 충북, 충남
+  ['45', '46', '47'],   // 전북, 전남, 경북
+  ['48', '50'],         // 경남, 제주
+];
+
+/** 배치 단위 캐시 갱신 (3개 지역씩) */
+export async function refreshEvBatch(
+  apiKey: string,
+  batchIndex: number
+): Promise<{ totalStations: number; apiCalls: number; errors: number; firstError: string | null; batch: number }> {
+  if (batchIndex < 0 || batchIndex >= BATCH_REGIONS.length) {
+    return { totalStations: 0, apiCalls: 0, errors: 0, firstError: 'Invalid batch index', batch: batchIndex };
+  }
+
+  const regionCodes = BATCH_REGIONS[batchIndex];
+  const allChargers: ReturnType<typeof parseChargerItem>[] = [];
+  let apiCalls = 0;
+  let errors = 0;
+  let firstError: string | null = null;
+
+  for (const code of regionCodes) {
+    try {
+      apiCalls++;
+      const { items, totalCount } = await fetchRegion(apiKey, code, 1, 9999);
+      for (const item of items) allChargers.push(parseChargerItem(item));
+
+      if (totalCount > 9999) {
+        const totalPages = Math.ceil(totalCount / 9999);
+        for (let page = 2; page <= totalPages; page++) {
+          apiCalls++;
+          const extra = await fetchRegion(apiKey, code, page, 9999);
+          for (const item of extra.items) allChargers.push(parseChargerItem(item));
+          await new Promise(r => setTimeout(r, 300));
+        }
+      }
+    } catch (e: any) {
+      errors++;
+      if (!firstError) firstError = `${code}: ${e?.message || String(e)}`;
+      console.error(`[EvCache] Batch ${batchIndex} - ${code} 조회 실패:`, e);
+    }
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  const stations = aggregateByStation(allChargers);
+
+  // Redis에 지역별 저장 (이 배치의 지역만)
+  try {
+    const byRegion = new Map<string, EvStation[]>();
+    for (const s of stations) {
+      const zcode = s.zcode || '00';
+      if (!byRegion.has(zcode)) byRegion.set(zcode, []);
+      byRegion.get(zcode)!.push(s);
+    }
+
+    const savePromises = Array.from(byRegion.entries()).map(([zcode, data]) =>
+      cacheSet(`${REDIS_REGION_PREFIX}${zcode}`, data, REDIS_TTL)
+    );
+    await Promise.all(savePromises);
+
+    // 메타데이터 업데이트 (기존 메타에 이 배치의 지역 추가)
+    try {
+      const existingMeta = await cacheGet<EvCacheMeta>(REDIS_META_KEY);
+      const existingZcodes = new Set(existingMeta?.zcodes || []);
+      for (const z of Array.from(byRegion.keys())) existingZcodes.add(z);
+      const meta: EvCacheMeta = {
+        updatedAt: Date.now(),
+        zcodes: Array.from(existingZcodes),
+      };
+      await cacheSet(REDIS_META_KEY, meta, REDIS_TTL);
+    } catch { /* 메타 업데이트 실패 무시 */ }
+
+    console.log(`[EvCache] Batch ${batchIndex}: ${regionCodes.join(',')} → ${stations.length}개 충전소 Redis 저장`);
+  } catch (e) {
+    console.error(`[EvCache] Batch ${batchIndex} Redis 저장 실패:`, e);
+  }
+
+  return { totalStations: stations.length, apiCalls, errors, firstError, batch: batchIndex };
+}
+
+/** Redis에 저장된 지역 데이터로 그리드 인덱스 빌드 (API 호출 없음) */
+export async function buildGridFromRedis(): Promise<{ cellCount: number; stationCount: number }> {
+  try {
+    const meta = await cacheGet<EvCacheMeta>(REDIS_META_KEY);
+    if (!meta?.zcodes?.length) {
+      return { cellCount: 0, stationCount: 0 };
+    }
+
+    const stations = await loadRegionsFromRedis(meta.zcodes);
+    if (stations.length === 0) {
+      return { cellCount: 0, stationCount: 0 };
+    }
+
+    const cellCount = await saveGeoIndex(stations);
+    console.log(`[EvCache] 그리드 인덱스 빌드 완료: ${cellCount}개 셀, ${stations.length}개 충전소`);
+    return { cellCount, stationCount: stations.length };
+  } catch (e) {
+    console.error('[EvCache] 그리드 인덱스 빌드 실패:', e);
+    return { cellCount: 0, stationCount: 0 };
+  }
 }
 
 // ===================== 실시간 충전기 상태 =====================

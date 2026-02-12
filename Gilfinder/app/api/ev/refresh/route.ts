@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { refreshEvCache, getEvCacheStatus } from '@/lib/evCache';
+import { refreshEvCache, refreshEvBatch, buildGridFromRedis, getEvCacheStatus } from '@/lib/evCache';
 
 /**
  * 전기차 충전소 캐시 갱신 엔드포인트
  *
- * Vercel Cron으로 매일 오전 6시(KST) 호출:
- * vercel.json에 설정:
- * {
- *   "path": "/api/ev/refresh",
- *   "schedule": "0 21 * * *"  // UTC 21:00 = KST 06:00
- * }
- *
  * GET: 캐시 상태 확인
- * POST: 캐시 갱신 실행
+ * POST: 캐시 갱신
+ *   - ?batch=0~5: 배치별 갱신 (3개 지역씩)
+ *   - ?action=grid: Redis 데이터로 그리드 인덱스 빌드
+ *   - 파라미터 없음: 전체 갱신 (타임아웃 주의)
  */
 
 export async function GET() {
@@ -36,10 +32,39 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const batchParam = searchParams.get('batch');
+  const action = searchParams.get('action');
+
   try {
-    console.log('[EvCache] 캐시 갱신 시작');
+    // 그리드 인덱스 빌드 (API 호출 없음, Redis 데이터만 사용)
+    if (action === 'grid') {
+      console.log('[EvCache] 그리드 인덱스 빌드 시작 (Redis 기반)');
+      const result = await buildGridFromRedis();
+      return NextResponse.json({
+        success: true,
+        action: 'grid',
+        ...result,
+      });
+    }
+
+    // 배치별 갱신
+    if (batchParam !== null) {
+      const batchIndex = parseInt(batchParam);
+      console.log(`[EvCache] 배치 ${batchIndex} 갱신 시작`);
+      const result = await refreshEvBatch(apiKey, batchIndex);
+      console.log(`[EvCache] 배치 ${batchIndex} 완료: ${result.totalStations}개 충전소`);
+      return NextResponse.json({
+        success: result.errors === 0,
+        ...result,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    // 전체 갱신 (레거시, 타임아웃 주의)
+    console.log('[EvCache] 전체 캐시 갱신 시작');
     const result = await refreshEvCache(apiKey);
-    console.log(`[EvCache] 갱신 완료: ${result.totalStations}개 충전소, ${result.apiCalls}회 API 호출, ${result.errors}건 에러`);
+    console.log(`[EvCache] 갱신 완료: ${result.totalStations}개 충전소`);
 
     return NextResponse.json({
       success: true,
