@@ -6,7 +6,6 @@
     { "path": "/api/ev/refresh?batch=3", "schedule": "6 21 * * *" },
     { "path": "/api/ev/refresh?batch=4", "schedule": "8 21 * * *" },
     { "path": "/api/ev/refresh?batch=5", "schedule": "10 21 * * *" },
-    { "path": "/api/ev/refresh?action=grid", "schedule": "15 21 * * *" },
     { "path": "/api/fuel/refresh", "schedule": "0 22 * * *" }
   ]
 }

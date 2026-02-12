@@ -874,35 +874,13 @@ export async function refreshEvBatch(
 
   const stations = aggregateByStation(allChargers);
 
-  // Redis에 지역별 저장 (이 배치의 지역만)
+  // 그리드 셀 직접 빌드 (per-region Redis는 1MB 제한에 걸릴 수 있으므로 그리드만 저장)
+  let cellCount = 0;
   try {
-    const byRegion = new Map<string, EvStation[]>();
-    for (const s of stations) {
-      const zcode = s.zcode || '00';
-      if (!byRegion.has(zcode)) byRegion.set(zcode, []);
-      byRegion.get(zcode)!.push(s);
-    }
-
-    const savePromises = Array.from(byRegion.entries()).map(([zcode, data]) =>
-      cacheSet(`${REDIS_REGION_PREFIX}${zcode}`, data, REDIS_TTL)
-    );
-    await Promise.all(savePromises);
-
-    // 메타데이터 업데이트 (기존 메타에 이 배치의 지역 추가)
-    try {
-      const existingMeta = await cacheGet<EvCacheMeta>(REDIS_META_KEY);
-      const existingZcodes = new Set(existingMeta?.zcodes || []);
-      for (const z of Array.from(byRegion.keys())) existingZcodes.add(z);
-      const meta: EvCacheMeta = {
-        updatedAt: Date.now(),
-        zcodes: Array.from(existingZcodes),
-      };
-      await cacheSet(REDIS_META_KEY, meta, REDIS_TTL);
-    } catch { /* 메타 업데이트 실패 무시 */ }
-
-    console.log(`[EvCache] Batch ${batchIndex}: ${regionCodes.join(',')} → ${stations.length}개 충전소 Redis 저장`);
+    cellCount = await saveGeoIndex(stations);
+    console.log(`[EvCache] Batch ${batchIndex}: ${regionCodes.join(',')} → ${stations.length}개 충전소, ${cellCount}개 그리드 셀`);
   } catch (e) {
-    console.error(`[EvCache] Batch ${batchIndex} Redis 저장 실패:`, e);
+    console.error(`[EvCache] Batch ${batchIndex} 그리드 저장 실패:`, e);
   }
 
   return { totalStations: stations.length, apiCalls, errors, firstError, batch: batchIndex };
